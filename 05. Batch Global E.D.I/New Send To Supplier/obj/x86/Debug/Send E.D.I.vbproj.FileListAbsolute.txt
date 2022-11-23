@@ -1,0 +1,13 @@
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\bin\Debug\Send E.D.I.exe
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\bin\Debug\Send E.D.I.pdb
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\bin\Debug\Send E.D.I.xml
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\bin\Debug\GlobalSetting.dll
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\bin\Debug\GlobalSetting.pdb
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\bin\Debug\GlobalSetting.xml
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\obj\x86\Debug\Send E.D.I.vbprojResolveAssemblyReference.cache
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\obj\x86\Debug\New_Send_To_Supplier.frmSendMail.resources
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\obj\x86\Debug\New_Send_To_Supplier.Resources.resources
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\obj\x86\Debug\Send E.D.I.vbproj.GenerateResource.Cache
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\obj\x86\Debug\Send E.D.I.exe
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\obj\x86\Debug\Send E.D.I.xml
+D:\Fikri\dari toshiba\GentonG\pro\passsi\visit PASI\LIVE\05. Batch Global E.D.I\New Send To Supplier\obj\x86\Debug\Send E.D.I.pdb
