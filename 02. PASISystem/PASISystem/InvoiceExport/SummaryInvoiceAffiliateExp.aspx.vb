@@ -119,7 +119,7 @@ Public Class SummaryInvoiceAffiliateExp
             'SUPPLIER DELIVERY DATE
             If chkSupplierDelDate.Checked = True Then
                 ls_filter = ls_filter + _
-                              "                      AND CONVERT(date,POM.ETDVendor1) BETWEEN '" & Format(dtSupplierDelDateFrom.Value, "yyyy-MM-dd") & "' AND '" & Format(dtSupplierDelDateTo.Value, "yyyy-MM-dd") & "' " & vbCrLf
+                              "                      AND CONVERT(date,DSM.DeliveryDate) BETWEEN '" & Format(dtSupplierDelDateFrom.Value, "yyyy-MM-dd") & "' AND '" & Format(dtSupplierDelDateTo.Value, "yyyy-MM-dd") & "' " & vbCrLf
             End If
 
             'PASI DELIVERY DATE

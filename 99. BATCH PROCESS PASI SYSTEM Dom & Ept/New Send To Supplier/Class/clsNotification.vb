@@ -135,6 +135,10 @@ Public Class clsNotification
                         ls_BodyMessage = ls_BodyMessage & vbCrLf
                         ls_BodyMessage = ls_BodyMessage & pUrl & vbCrLf
                     End If
+                    If ls_Cls(xyz) = "07" Then 'Information Abaikan ke Forwarder
+                        ls_BodyMessage = ls_BodyMessage & vbCrLf
+                        ls_BodyMessage = ls_BodyMessage & "Mohon Email Delivery : " & pSuratJalanNo & " Sebelumnya di Abaikan " & vbCrLf
+                    End If
                 End If
             Next
 

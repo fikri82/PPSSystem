@@ -1787,7 +1787,7 @@ Partial Public Class RptPackingList
         'GTotal
         '
         Me.GTotal.DataMember = "CustomSqlQuery"
-        Me.GTotal.Expression = "(FLOOR(([].Sum([TotPrice]))*([PPNTax]/100)))+(([].Sum([TotPrice])))"
+        Me.GTotal.Expression = "(ROUND(([].Sum([TotPrice]))*([PPNTax]/100),0))+(([].Sum([TotPrice])))"
         Me.GTotal.Name = "GTotal"
         '
         'GroupFooter1
@@ -2093,7 +2093,7 @@ Partial Public Class RptPackingList
         'PPN
         '
         Me.PPN.DataMember = "CustomSqlQuery"
-        Me.PPN.Expression = "FLOOR(([].Sum([TotPrice]))*([PPNTax]/100))"
+        Me.PPN.Expression = "ROUND(([].Sum([TotPrice]))*([PPNTax]/100), 0)"
         Me.PPN.Name = "PPN"
         '
         'TotalCarton

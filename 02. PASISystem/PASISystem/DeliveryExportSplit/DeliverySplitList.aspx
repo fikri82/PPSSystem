@@ -29,6 +29,28 @@
         function OnBatchEditStartEditing(s, e) {
             e.cancel = true;
         }
+
+        function OnInitGrid(s, e) {
+            gridHeight(255);
+        }
+
+        function OnControlsInitialized(s, e) {
+            ASPxClientUtils.AttachEventToElement(window, "resize", function (evt) {
+                gridHeight(255);
+            });
+        }
+
+        function gridHeight(pF) {
+            var h1 = 49;
+            var p1 = 10;
+            var h2 = 34;
+            var p2 = 13;
+
+            var hAll = h1 + p1 + h2 + p2 + pF;
+            /* alert(h1 + p1 + h2 + p2 + h3);*/
+            var height = Math.max(0, document.documentElement.clientHeight);
+            grid.SetHeight(height - hAll);
+        };
     </script>
     
     <table style="width:100%">
@@ -36,7 +58,7 @@
             <td style="width:50%">
                 <table style="width: 100%;">
                     <tr>
-                        <td style="width: 30%">
+                        <td>
                             <dx1:ASPxLabel ID="ASPxLabel1" runat="server" Font-Names="Tahoma" Font-Size="8pt"
                                 Text="SUPPLIER PLAN DELIVERY DATE">
                             </dx1:ASPxLabel>
@@ -46,7 +68,7 @@
                         </td>
                         <td style="width: 1%">
                             <dx1:ASPxDateEdit ID="dtFromDelivery" runat="server" ClientInstanceName="dtFromDelivery" Font-Names="Tahoma"
-                                Font-Size="8pt" EditFormat="Custom" EditFormatString="dd MMM yyyy">
+                                Font-Size="8pt" EditFormat="Custom" EditFormatString="dd MMM yyyy" CalendarProperties-ShowWeekNumbers="False">
                                 <ClientSideEvents 
                                     Init="function(s, e){s.SetDate(new Date());}"
                                     DateChanged="function(s, e){grid.PerformCallback('gridKosong')}"
@@ -60,7 +82,7 @@
                         </td>
                         <td>
                             <dx1:ASPxDateEdit ID="dtToDelivery" runat="server" ClientInstanceName="dtToDelivery" Font-Names="Tahoma"
-                                Font-Size="8pt" EditFormat="Custom" EditFormatString="dd MMM yyyy">
+                                Font-Size="8pt" EditFormat="Custom" EditFormatString="dd MMM yyyy" CalendarProperties-ShowWeekNumbers="False">
                                 <ClientSideEvents 
                                     Init="function(s, e){s.SetDate(new Date());}"
                                     DateChanged="function(s, e){grid.PerformCallback('gridKosong')}"
@@ -70,7 +92,7 @@
                     </tr>
                     <tr><td></td></tr>
                     <tr>
-                        <td style="width: 20%">
+                        <td>
                             <dx1:ASPxLabel ID="ASPxLabel4" runat="server" Font-Names="Tahoma" Font-Size="8pt"
                                 Text="FORWARDER PLAN RECEIPT DATE">
                             </dx1:ASPxLabel>
@@ -104,7 +126,7 @@
                     </tr>
                     <tr><td></td></tr>
                     <tr>
-                        <td style="width: 20%">
+                        <td>
                             <dx1:ASPxLabel ID="ASPxLabel6" runat="server" Font-Names="Tahoma" Font-Size="8pt"
                                 Text="SUPPLIER SURAT JALAN NO.">
                             </dx1:ASPxLabel>
@@ -118,7 +140,7 @@
                     </tr>
                     <tr><td></td></tr>
                     <tr>
-                        <td style="width: 20%">
+                        <td>
                             <dx1:ASPxLabel ID="ASPxLabel9" runat="server" Font-Names="Tahoma" Font-Size="8pt"
                                 Text="PO NO.">
                             </dx1:ASPxLabel>
@@ -260,10 +282,11 @@
                         }" 
                         RowClick="function(s, e) {lblerrmessage.SetText('')}" 
                         CallbackError="function(s, e) {e.handled = true}" 
-                        BatchEditStartEditing="OnBatchEditStartEditing" />
+                        BatchEditStartEditing="OnBatchEditStartEditing"
+                        Init="OnInitGrid" />
                     <Columns>
                         <dx:GridViewDataHyperLinkColumn Caption=" " FieldName="coldetail" Name="coldetail" VisibleIndex="0" Width="50px">
-                            <PropertiesHyperLinkEdit TextField="coldetailname"/>
+                            <PropertiesHyperLinkEdit TextField="coldetailname" Target="_blank"/>
                             <HeaderStyle Font-Names="Tahoma" Font-Size="8pt" Font-Underline="False" Wrap="True" />
                             <CellStyle Font-Names="Tahoma" Font-Size="8pt" VerticalAlign="Middle" HorizontalAlign="Center"/>
                         </dx:GridViewDataHyperLinkColumn>
@@ -273,47 +296,35 @@
                             <CellStyle Font-Names="Tahoma" Font-Size="8pt" VerticalAlign="Middle" HorizontalAlign="Center"/>
                         </dx:GridViewDataTextColumn>
 
-                        <dx:GridViewDataTextColumn Caption="AFFILIATE" FieldName="Affiliate" Name="Affiliate" VisibleIndex="2" Width="150px">
+                        <dx:GridViewDataTextColumn Caption="AFFILIATE" FieldName="Affiliate" Name="Affiliate" VisibleIndex="2" Width="100px">
                             <HeaderStyle Font-Names="Tahoma" Font-Size="8pt" Font-Underline="False" Wrap="True" HorizontalAlign="Center" />
                             <CellStyle Font-Names="Tahoma" Font-Size="8pt" VerticalAlign="Middle" HorizontalAlign="Left"/>
                         </dx:GridViewDataTextColumn>
 
-                        <dx:GridViewDataTextColumn Caption="SUPPLIER" FieldName="Supplier" Name="Supplier" VisibleIndex="3" Width="150px">
+                        <dx:GridViewDataTextColumn Caption="SUPPLIER" FieldName="Supplier" Name="Supplier" VisibleIndex="3" Width="100px">
                             <HeaderStyle Font-Names="Tahoma" Font-Size="8pt" Font-Underline="False" Wrap="True" HorizontalAlign="Center" />
                             <CellStyle Font-Names="Tahoma" Font-Size="8pt" VerticalAlign="Middle" HorizontalAlign="Left"/>
                         </dx:GridViewDataTextColumn>
 
-                        <dx:GridViewDataTextColumn Caption="FORWARDER" FieldName="Forwarder" Name="Forwarder" VisibleIndex="4" Width="150px">
+                        <dx:GridViewDataTextColumn Caption="FORWARDER" FieldName="Forwarder" Name="Forwarder" VisibleIndex="4" Width="100px">
                             <HeaderStyle Font-Names="Tahoma" Font-Size="8pt" Font-Underline="False" Wrap="True" HorizontalAlign="Center" />
                             <CellStyle Font-Names="Tahoma" Font-Size="8pt" VerticalAlign="Middle" HorizontalAlign="Left"/>
                         </dx:GridViewDataTextColumn>
 
-                        <dx:GridViewDataTextColumn Caption="PO NO" FieldName="PoNo" Name="PoNo" VisibleIndex="5" Width="150px">
+                        <dx:GridViewDataTextColumn Caption="PO NO" FieldName="PoNo" Name="PoNo" VisibleIndex="5" Width="90px">
                             <HeaderStyle Font-Names="Tahoma" Font-Size="8pt" Font-Underline="False" Wrap="True" HorizontalAlign="Center" />
                             <CellStyle Font-Names="Tahoma" Font-Size="8pt" VerticalAlign="Middle" HorizontalAlign="Left"/>
                         </dx:GridViewDataTextColumn>
 
-                        <dx:GridViewDataTextColumn Caption="ORDER NO" FieldName="OrderNo" Name="OrderNo" VisibleIndex="6" Width="200px">
+                        <dx:GridViewDataTextColumn Caption="ORDER NO" FieldName="OrderNo" Name="OrderNo" VisibleIndex="6" Width="125px">
                             <HeaderStyle Font-Names="Tahoma" Font-Size="8pt" Font-Underline="False" Wrap="True" HorizontalAlign="Center" />
                             <CellStyle Font-Names="Tahoma" Font-Size="8pt" VerticalAlign="Middle" HorizontalAlign="Left"/>
                         </dx:GridViewDataTextColumn>
-
-                        <dx:GridViewDataDateColumn Caption="SUPPLIER DELIVERY DATE" FieldName="DeliveryDate" Name="DeliveryDate" VisibleIndex="7" Width="105px">
-                            <propertiesdateedit displayformatstring="dd MMM yyyy" editformat="Custom" editformatstring="dd MMM yyyy" maxdate="9999-12-31" mindate="2000-12-01">
-                                <ButtonStyle Width="5px" Paddings-Padding="2px" />
-                                <CalendarProperties>
-                                    <HeaderStyle Font-Size="12pt" Paddings-Padding="5px" />
-                                    <DayStyle Font-Size="9pt" Paddings-Padding="5px" />
-                                    <WeekNumberStyle Font-Size="9pt" Paddings-Padding="5px">
-                                    </WeekNumberStyle>
-                                    <FooterStyle Font-Size="9pt" Paddings-Padding="5px" />
-                                    <ButtonStyle Font-Size="9pt" Paddings-Padding="5px">
-                                    </ButtonStyle>
-                                </CalendarProperties>
-                            </propertiesdateedit>
-                            <HeaderStyle HorizontalAlign="Center" VerticalAlign="Middle" />
-                            <CellStyle HorizontalAlign="Center" VerticalAlign="Middle" />
-                        </dx:GridViewDataDateColumn>
+						
+						<dx:GridViewDataTextColumn Caption="SUPPLIER DELIVERY DATE" FieldName="DeliveryDate" Name="DeliveryDate" VisibleIndex="7" Width="105px">
+                            <HeaderStyle Font-Names="Tahoma" Font-Size="8pt" Font-Underline="False" Wrap="True" HorizontalAlign="Center" />
+                            <CellStyle Font-Names="Tahoma" Font-Size="8pt" VerticalAlign="Middle" HorizontalAlign="Center"/>
+                        </dx:GridViewDataTextColumn>
 
                         <dx:GridViewDataTextColumn Caption="SUPPLIER SURAT JALAN NO" FieldName="SuppSuratJalan" Name="SuppSuratJalan" VisibleIndex="8" Width="150px">
                             <HeaderStyle Font-Names="Tahoma" Font-Size="8pt" Font-Underline="False" Wrap="True" HorizontalAlign="Center" />
@@ -322,7 +333,7 @@
                                                 
                         <dx:GridViewDataTextColumn Caption="FORWARDER RECEIVED DATE" FieldName="ReceivedDate" Name="ReceivedDate" VisibleIndex="9" Width="105px">
                             <HeaderStyle Font-Names="Tahoma" Font-Size="8pt" Font-Underline="False" Wrap="True" HorizontalAlign="Center" />
-                            <CellStyle Font-Names="Tahoma" Font-Size="8pt" VerticalAlign="Middle" HorizontalAlign="Left"/>
+                            <CellStyle Font-Names="Tahoma" Font-Size="8pt" VerticalAlign="Middle" HorizontalAlign="Center"/>
                         </dx:GridViewDataTextColumn>
 
                         <dx:GridViewDataTextColumn Caption="REMARKS" FieldName="Remark" Name="Remark" VisibleIndex="10" Width="105px">
@@ -364,6 +375,7 @@
     <dx:ASPxGlobalEvents ID="ge" runat="server">
         <ClientSideEvents ControlsInitialized="function(s, e) {
 	        OnControlsInitializedSplitter();
+            OnControlsInitialized();
         }" />
     </dx:ASPxGlobalEvents>
 

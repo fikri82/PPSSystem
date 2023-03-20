@@ -881,6 +881,7 @@ EndProcedure:
                 ls_sql = ls_sql + " 		AND RM.SupplierID = RD.SupplierID    " & vbCrLf & _
                                   " 		AND RM.AffiliateID = RD.AffiliateID   " & vbCrLf & _
                                   " 		AND RM.PONo = RD.PONo   " & vbCrLf & _
+								  "			AND RM.OrderNo = RD.OrderNo 	   " & vbCrLf & _
                                   " 	LEFT JOIN dbo.MS_Parts MP ON RD.PartNo = MP.PartNo   " & vbCrLf & _
                                   " 	LEFT JOIN ReceiveForwarder_DetailBox RB ON RB.SuratJalanNo = RD.SuratJalanNo  " & vbCrLf & _
                                   " 		AND RB.SupplierID = RD.SupplierID   " & vbCrLf & _

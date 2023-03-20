@@ -938,7 +938,7 @@ Public Class frmSendMail
                 rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Start Send Remaining Delivery to Forwarder" & vbCrLf & _
                             " " & vbCrLf & _
                             rtbProcess.Text
-                Excel_DeliveryConfirmationRemaining()
+                'Excel_DeliveryConfirmationRemaining()
                 rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " End Send Remaining Delivery to Forwarder " & vbCrLf & _
                              rtbProcess.Text
 
@@ -950,6 +950,15 @@ Public Class frmSendMail
                 rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " End Send Invoice Export to Supplier " & vbCrLf & _
                              rtbProcess.Text
                 'Fungsi Baru Fikri => 2022-10-10 untuk kirim Invoice Excel ke Supplier
+
+                'Fungsi Baru Fikri => 2023-03-01 untuk kirim Moving Good ke Forwarder
+                rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Start Send Moving Good to Forwarder " & vbCrLf & _
+                                " " & vbCrLf & _
+                                rtbProcess.Text
+                up_MovingGoodExport()
+                rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " End Send Moving Good to Forwarder " & vbCrLf & _
+                             rtbProcess.Text
+                'Fungsi Baru Fikri => 2023-03-01 untuk kirim Moving Good ke Forwarder
 
                 'rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Start Send Receiving To Supplier" & vbCrLf & _
                 '            " " & vbCrLf & _
@@ -1809,6 +1818,181 @@ keluar:
         End Try
     End Sub
 
+    Private Sub Excel_CustomerDeliveryConfirmation_SplitDelivery(dt As DataTable, xlApp As Excel.Application, ExcelBook As Excel.Workbook, ExcelSheet As Excel.Worksheet)
+        Dim templateFile = ""
+        Dim ls_Filename1 = "", ls_Filename2 = ""
+        Dim receiptEmail = "", receiptCCEmail = ""
+        Dim tmpOrderNo = ""
+
+        Dim OrderNo1 = ""
+        Dim OrderNo2 = ""
+        Dim AffiliateID = Trim(dt.Rows(0)("AffiliateID"))
+        Dim SupplierID = Trim(dt.Rows(0)("SupplierID"))
+        Dim ForwarderID = "" 'Trim(dt.Rows(0)("ForwarderID"))
+        Dim PONo = Trim(dt.Rows(0)("PONo"))
+        Dim OrderNo = "" 'Trim(dt.Rows(0)("orderNo"))
+        Dim SJDeliverySplit = Trim(dt.Rows(0)("SplitDelivery")) 'Replace(dt.Rows(0)("SplitDelivery")), "'", "''")
+
+        Dim dsEmail As New DataSet
+        dsEmail = EmailToEmailCCKanban_Export(AffiliateID, SupplierID)
+        '1 CC Affiliate
+        '2 CC PASI
+        '3 CC & TO Supplier
+        For i = 0 To dsEmail.Tables(0).Rows.Count - 1
+            If receiptCCEmail = "" Then
+                receiptCCEmail = dsEmail.Tables(0).Rows(i)("KanbanCC")
+            Else
+                receiptCCEmail = receiptCCEmail & ";" & dsEmail.Tables(0).Rows(i)("KanbanCC")
+            End If
+
+            If dsEmail.Tables(0).Rows(i)("KanbanTO") <> "" Then
+                receiptEmail = dsEmail.Tables(0).Rows(i)("KanbanTO")
+            End If
+        Next
+
+        Dim ls_sql As String = "Exec sp_DeliverySplitBatch_Select '" + AffiliateID + "', '" + SupplierID + "', '" + PONo + "', '" + SJDeliverySplit + "' "
+        Dim dtSplitDelivery As New DataTable
+        dtSplitDelivery = cls.uf_GetDataSet(ls_sql).Tables(0)
+
+        If dtSplitDelivery.Rows.Count > 2 Then
+            Throw New Exception("Data Excel Split More than 2, Please Check : " & ls_sql)
+        End If
+
+        For i = 0 To dtSplitDelivery.Rows.Count - 1
+            OrderNo = dtSplitDelivery.Rows(i)("OrderNo").ToString()
+            ForwarderID = dtSplitDelivery.Rows(0)("OldForwarderID").ToString() 'pasti yg pertama aja
+            tmpOrderNo = tmpOrderNo & IIf(tmpOrderNo = "", "", " & ") & OrderNo
+
+            templateFile = Trim(txtAttachmentDOM.Text) & "\Template Customer Delivery Confirmation.xlsm"
+            Dim fi As New FileInfo(templateFile)
+
+            If Not fi.Exists Then
+                rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Customer Delivery Confirmation STOPPED, because File Excel isn't Found " & vbCrLf & _
+                                rtbProcess.Text
+                Exit Sub
+            End If
+
+            ExcelBook = xlApp.Workbooks.Open(templateFile)
+            ExcelSheet = CType(ExcelBook.Worksheets(1), Excel.Worksheet)
+
+            'Start Create Excel for Header
+            ExcelSheet.Range("H2").Value = receiptEmail.Trim
+            ExcelSheet.Range("H3").Value = AffiliateID
+            ExcelSheet.Range("H4").Value = dtSplitDelivery.Rows(i)("ForwarderID").ToString()
+            ExcelSheet.Range("H5").Value = SupplierID
+
+            ExcelSheet.Range("AP11").Value = IIf(dtSplitDelivery.Rows(i)("CommercialCls").ToString() = "0", "NO", "YES")
+
+            ExcelSheet.Range("I11:X11").Value = dtSplitDelivery.Rows(i)("SupplierName").ToString()
+            ExcelSheet.Range("I12:X15").Value = dtSplitDelivery.Rows(i)("SupplierAddress").ToString()
+
+            ExcelSheet.Range("I19:X19").Value = dtSplitDelivery.Rows(i)("ForwarderName").ToString()
+            ExcelSheet.Range("I20:X22").Value = dtSplitDelivery.Rows(i)("ForwarderAddress").ToString()
+
+            ExcelSheet.Range("I23:X23").Value = "ATTN : " & dtSplitDelivery.Rows(i)("attn").ToString() & "     TELP : " & dtSplitDelivery.Rows(i)("telp").ToString()
+
+            ExcelSheet.Range("AE19:AT19").Value = dtSplitDelivery.Rows(i)("ConsigneeName").ToString()
+            ExcelSheet.Range("AE20:AT22").Value = dtSplitDelivery.Rows(i)("ConsigneeAddress").ToString()
+
+            ExcelSheet.Range("AE11:AI11").Value = Format((dtSplitDelivery.Rows(i)("Period")), "yyyy-MM")
+
+            ExcelSheet.Range("AE13:AI13").Value = OrderNo
+            ExcelSheet.Range("AE15:AI15").Value = PONo
+
+            ExcelSheet.Range("AE17:AI17").Value = Format((dtSplitDelivery.Rows(i)("ETDVendor")), "yyyy-MM-dd")
+
+            'Ending Create Excel for Header
+
+            ls_sql = "Exec sp_DeliverySplitBatch_Select_Detail '" + AffiliateID + "', '" + SupplierID + "', '" + PONo + "', '" + OrderNo + "' "
+            Dim dtSplitDelivery_Detail As New DataTable
+            dtSplitDelivery_Detail = cls.uf_GetDataSet(ls_sql).Tables(0)
+
+            'Start Create Excel for Detail
+            With ExcelSheet
+                For j = 0 To dtSplitDelivery_Detail.Rows.Count - 1
+                    .Range("B" & j + 34 & ": C" & j + 34).Merge()   'No
+                    .Range("D" & j + 34 & ": H" & j + 34).Merge()   'Order No
+                    .Range("I" & j + 34 & ": M" & j + 34).Merge()   'Part No
+                    .Range("N" & j + 34 & ": V" & j + 34).Merge()   'Part Name
+                    .Range("W" & j + 34 & ": Y" & j + 34).Merge()   'Label No From
+                    .Range("Z" & j + 34 & ": AB" & j + 34).Merge()  'Label No To
+                    .Range("AC" & j + 34 & ": AD" & j + 34).Merge() 'UOM
+                    .Range("AE" & j + 34 & ": AF" & j + 34).Merge() 'Qty/Box
+                    .Range("AG" & j + 34 & ": AJ" & j + 34).Merge() 'Delivery Plan Qty
+                    .Range("AK" & j + 34 & ": AN" & j + 34).Merge() 'Remaining Qty
+                    .Range("AO" & j + 34 & ": AR" & j + 34).Merge() 'Delivery Qty
+                    .Range("AS" & j + 34 & ": AV" & j + 34).Merge() 'Total Box
+
+                    .Range("B" & j + 34 & ": C" & j + 34).Value = j + 1                                                     'No
+                    .Range("D" & j + 34 & ": H" & j + 34).Value = OrderNo                                                   'Order No
+                    .Range("I" & j + 34 & ": M" & j + 34).Value = dtSplitDelivery_Detail.Rows(j)("PartNo").ToString()       'Part No
+                    .Range("N" & j + 34 & ": V" & j + 34).Value = dtSplitDelivery_Detail.Rows(j)("PartName").ToString()     'Part Name
+                    .Range("W" & j + 34 & ": Y" & j + 34).Value = dtSplitDelivery_Detail.Rows(j)("LabelNo1").ToString()     'Label No From
+                    .Range("Z" & j + 34 & ": AB" & j + 34).Value = dtSplitDelivery_Detail.Rows(j)("LabelNo2").ToString()    'Label No To
+                    .Range("AC" & j + 34 & ": AD" & j + 34).Value = dtSplitDelivery_Detail.Rows(j)("UOM").ToString()        'UOM
+                    .Range("AE" & j + 34 & ": AF" & j + 34).Value = dtSplitDelivery_Detail.Rows(j)("MOQ").ToString()        'Qty/Box
+                    .Range("AG" & j + 34 & ": AJ" & j + 34).Value = dtSplitDelivery_Detail.Rows(j)("DelivQty").ToString()   'Delivery Plan Qty
+                    .Range("AG" & j + 34 & ": AJ" & j + 34).NumberFormat = "#,##0"
+
+                    .Range("AK" & j + 34 & ": AN" & j + 34).Value = dtSplitDelivery_Detail.Rows(j)("DelivQty").ToString()   'Remaining Qty
+                    .Range("AK" & j + 34 & ": AN" & j + 34).NumberFormat = "#,##0"
+
+                    .Range("AO" & j + 34 & ": AR" & j + 34).Value = dtSplitDelivery_Detail.Rows(j)("DelivQty").ToString()   'Delivery Qty
+                    .Range("AO" & j + 34 & ": AR" & j + 34).NumberFormat = "#,##0"
+
+                    .Range("AS" & j + 34 & ": AV" & j + 34).Value = dtSplitDelivery_Detail.Rows(j)("TotalPOQty").ToString() 'Total Box
+                    .Range("AS" & j + 34 & ": AV" & j + 34).NumberFormat = "#,##0"
+                Next
+
+                'Edit Cell Style
+
+                .Range("B35").Interior.Color = Color.White
+                .Range("B35").Font.Color = Color.Black
+                .Range("B" & dtSplitDelivery_Detail.Rows.Count + 34).Value = "E"
+                .Range("B" & dtSplitDelivery_Detail.Rows.Count + 34).Interior.Color = Color.Black
+                .Range("B" & dtSplitDelivery_Detail.Rows.Count + 34).Font.Color = Color.White
+
+                DrawAllBorders(.Range("B34" & ": AV" & dtSplitDelivery_Detail.Rows.Count - 1 + 34))
+                .Range("AM34" & ": AP" & dtSplitDelivery_Detail.Rows.Count - 1 + 34).Interior.Color = Color.Yellow
+                .Range("W34" & ": AB" & dtSplitDelivery_Detail.Rows.Count - 1 + 34).Interior.Color = Color.Yellow
+
+                Dim xlRange As Microsoft.Office.Interop.Excel.Range
+                xlRange = .Range("W34:AB" & dtSplitDelivery_Detail.Rows.Count - 1 + 34)
+                xlRange.HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter
+                xlRange.VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter
+
+                xlRange = .Range("B34:C" & dtSplitDelivery_Detail.Rows.Count - 1 + 34)
+                xlRange.HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter
+                xlRange.VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter
+
+
+            End With
+            'Ending Create Excel for Detail
+
+            xlApp.DisplayAlerts = False
+
+            If i = 0 Then
+                OrderNo1 = OrderNo
+                ls_Filename1 = "\DELIVERY CONFIRMATION-" & PONo & " Split (" & OrderNo & ")-" & SupplierID & ".xlsm"
+                ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & ls_Filename1)
+            ElseIf i = 1 Then
+                OrderNo2 = OrderNo
+                ls_Filename2 = "\DELIVERY CONFIRMATION-" & PONo & " Split (" & OrderNo & ")-" & SupplierID & ".xlsm"
+                ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & ls_Filename2)
+            End If
+
+            xlApp.Workbooks.Close()
+            xlApp.Quit()
+        Next
+
+        If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(PONo) & "-" & SupplierID, SupplierID, ls_Filename1, ls_Filename2, PONo, tmpOrderNo) = True Then
+            If sendEmailPASI_EXPORTForwarder_Information(SJDeliverySplit, AffiliateID, ForwarderID) = True Then
+                If OrderNo1 <> "" Then Call UpdateStatusPOExport(AffiliateID, SupplierID, PONo, OrderNo1)
+                If OrderNo2 <> "" Then Call UpdateStatusPOExport(AffiliateID, SupplierID, PONo, OrderNo2)
+            End If
+        End If
+    End Sub
+
     Private Sub Excel_CustomerDeliveryConfirmation()
         'On Error GoTo ErrHandler
         Dim strFileSize As String = ""
@@ -1884,8 +2068,8 @@ keluar:
             ls_sql = "  --Normal  " & vbCrLf & _
                      "  select distinct sts = '0', Consignee = isnull(MA.ConsigneeCode,''),sts = 'remaining', attn = isnull(MF.Attn,''), telp = isnull(MF.MobilePhone,''), PME.Period, PME.PONo, PME.OrderNo1 as orderNo, PME.AffiliateID, PME.SupplierID,MS.SupplierName,isnull(MS.Address,'') SUPPAddress,   " & vbCrLf & _
                      "  PME.ForwarderID, MF.ForwarderName, isnull(MF.Address,'')  FWDAddress, ETDVendor1 as ETDVendor, ETDPort1 as ETDPort, ETAPort1 as ETAPort, ETAFactory1 as ETAFactory,  " & vbCrLf & _
-                     "  PME.AffiliateID as AFF, MA.AffiliateName as AFFName, isnull(MA.Address,'') AFFAddress, DefectRecQty = 0, isnull(FinalApprovalCls,0) FinalApprovalCls, ISNULL(PME.SplitReffPONo, '') SplitReffPONo, PME.CommercialCls from   " & vbCrLf & _
-                     "  PO_Master_Export PME   " & vbCrLf & _
+                     "  PME.AffiliateID as AFF, MA.AffiliateName as AFFName, isnull(MA.Address,'') AFFAddress, DefectRecQty = 0, isnull(FinalApprovalCls,0) FinalApprovalCls, ISNULL(PME.SplitReffPONo, '') SplitReffPONo, PME.CommercialCls, SplitDelivery = ISNULL(SplitDelivery,'') " & vbCrLf & _
+                     "  From PO_Master_Export PME   " & vbCrLf & _
                      "  LEFT JOIN MS_Supplier MS ON MS.SupplierID = PME.SupplierID  " & vbCrLf & _
                      "  LEFT JOIN MS_Forwarder MF ON MF.ForwarderID = PME.ForwarderID  " & vbCrLf & _
                      "  LEFT JOIN MS_Affiliate MA ON MA.AffiliateID = PME.AffiliateID  " & vbCrLf & _
@@ -1897,288 +2081,423 @@ keluar:
             Dim ls_file As String = ""
 
             For i_loop = 0 To ds.Tables(0).Rows.Count - 1
-                pFilename_e = "" : pFileName_e2 = ""
-
-                '================================DELIVERY CONFIRMATION==================================
-                Dim fi As New FileInfo(Trim(txtAttachmentDOM.Text) & "\Template Customer Delivery Confirmation.xlsm")
-
-                If Not fi.Exists Then
-                    rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Customer Delivery Confirmation STOPPED, because File Excel isn't Found " & vbCrLf & _
-                                    rtbProcess.Text
-                    Exit Sub
-                End If
-
-                ls_Comercial = Trim(ds.Tables(0).Rows(i_loop)("CommercialCls"))
-
-                ls_FinalApprovalCls = Trim(ds.Tables(0).Rows(i_loop)("FinalApprovalCls"))
-                If ls_FinalApprovalCls = "3" And Trim(ds.Tables(0).Rows(i_loop)("SplitReffPONo")) <> "" Then
-                    'booSplit = True
-
-                    ls_sql = " select distinct sts = '0', Consignee = isnull(MA.ConsigneeCode,''),attn = isnull(MF.Attn,''), telp = isnull(MF.MobilePhone,''), PME.Period, PME.PONo, PME.OrderNo1 as orderNo, PME.AffiliateID, PME.SupplierID,MS.SupplierName,isnull(MS.Address,'') SUPPAddress,  " & vbCrLf & _
-                             " PME.ForwarderID, MF.ForwarderName, isnull(MF.Address,'')  FWDAddress, ETDVendor1 as ETDVendor, ETDPort1 as ETDPort, ETAPort1 as ETAPort, ETAFactory1 as ETAFactory, " & vbCrLf & _
-                             " PME.AffiliateID as AFF, MA.AffiliateName as AFFName, isnull(MA.Address,'') AFFAddress, DefectRecQty = 0, isnull(FinalApprovalCls,0) FinalApprovalCls, ISNULL(PME.SplitReffPONo, '') SplitReffPONo " & vbCrLf & _
-                             " FROM PO_Master_Export PME  " & vbCrLf & _
-                             " LEFT JOIN MS_Supplier MS ON MS.SupplierID = PME.SupplierID " & vbCrLf & _
-                             " LEFT JOIN MS_Forwarder MF ON MF.ForwarderID = PME.ForwarderID " & vbCrLf & _
-                             " LEFT JOIN MS_Affiliate MA ON MA.AffiliateID = PME.AffiliateID " & vbCrLf & _
-                             " WHERE PME.PONo = '" & Trim(ds.Tables(0).Rows(i_loop)("PONo")) & "' " & vbCrLf & _
-                             " AND PME.AffiliateID = '" & Trim(ds.Tables(0).Rows(i_loop)("AffiliateID")) & "' " & vbCrLf & _
-                             " AND PME.SupplierID = '" & Trim(ds.Tables(0).Rows(i_loop)("SupplierID")) & "' " & vbCrLf & _
-                             " AND PME.SplitReffPONo = '" & Trim(ds.Tables(0).Rows(i_loop)("SplitReffPONo")) & "' "
-
-                    dsSplit = cls.uf_GetDataSet(ls_sql)
-
-                    ls_SJ = ""
-                    ls_orderNoSplit = Trim(dsSplit.Tables(0).Rows(0)("OrderNo"))
-                    ls_Supplier = Trim(dsSplit.Tables(0).Rows(0)("supplierID"))
-                    ls_supplierName = Trim(dsSplit.Tables(0).Rows(0)("suppliername"))
-                    ls_supplierAdd = Trim(dsSplit.Tables(0).Rows(0)("SuppAddress"))
-                    ls_delivery = Trim(dsSplit.Tables(0).Rows(0)("ForwarderID"))
-                    ls_DeliveryName = Trim(dsSplit.Tables(0).Rows(0)("ForwarderName"))
-                    ls_deliveryAdd = Trim(dsSplit.Tables(0).Rows(0)("FWDAddress"))
-                    ls_orderNo = Trim(dsSplit.Tables(0).Rows(0)("PONo"))
-                    ls_ETDV = Format((dsSplit.Tables(0).Rows(0)("ETDVendor")), "yyyy-MM-dd")
-                    ls_ETDP = Format((dsSplit.Tables(0).Rows(0)("ETDPort")), "yyyy-MM-dd")
-                    ls_ETAP = Format((dsSplit.Tables(0).Rows(0)("ETAPort")), "yyyy-MM-dd")
-                    ls_ETAF = Format((dsSplit.Tables(0).Rows(0)("ETAFactory")), "yyyy-MM-dd")
-                    ls_Aff = Trim(dsSplit.Tables(0).Rows(0)("AFF"))
-                    ls_Consignee = Trim(dsSplit.Tables(0).Rows(0)("Consignee"))
-                    ls_AFFName = Trim(dsSplit.Tables(0).Rows(0)("AFFName"))
-                    ls_AffADD = Trim(dsSplit.Tables(0).Rows(0)("AFFAddress"))
-                    ls_PEriod = Format((dsSplit.Tables(0).Rows(0)("Period")), "yyyy-MM")
-                    ls_Attn = Trim(dsSplit.Tables(0).Rows(0)("attn"))
-                    ls_Telp = Trim(dsSplit.Tables(0).Rows(0)("telp"))
-                    ls_sts = Trim(dsSplit.Tables(0).Rows(0)("sts"))
+                'Fungsi Split Delivery
+                If Trim(ds.Tables(0).Rows(i_loop)("FinalApprovalCls")) = "1" And Trim(ds.Tables(0).Rows(i_loop)("SplitDelivery")) <> "" Then
+                    Excel_CustomerDeliveryConfirmation_SplitDelivery(ds.Tables(0).Rows(i_loop).Table, xlApp, ExcelBook, ExcelSheet)
                 Else
-Split:
-                    'booSplit = False
-                    ls_SJ = ""
-                    ls_orderNoSplit = Trim(ds.Tables(0).Rows(i_loop)("OrderNo"))
-                    ls_Supplier = Trim(ds.Tables(0).Rows(i_loop)("supplierID"))
-                    ls_supplierName = Trim(ds.Tables(0).Rows(i_loop)("suppliername"))
-                    ls_supplierAdd = Trim(ds.Tables(0).Rows(i_loop)("SuppAddress"))
-                    ls_delivery = Trim(ds.Tables(0).Rows(i_loop)("ForwarderID"))
-                    ls_DeliveryName = Trim(ds.Tables(0).Rows(i_loop)("ForwarderName"))
-                    ls_deliveryAdd = Trim(ds.Tables(0).Rows(i_loop)("FWDAddress"))
-                    ls_orderNo = Trim(ds.Tables(0).Rows(i_loop)("PONo"))
-                    ls_ETDV = Format((ds.Tables(0).Rows(i_loop)("ETDVendor")), "yyyy-MM-dd")
-                    ls_ETDP = Format((ds.Tables(0).Rows(i_loop)("ETDPort")), "yyyy-MM-dd")
-                    ls_ETAP = Format((ds.Tables(0).Rows(i_loop)("ETAPort")), "yyyy-MM-dd")
-                    ls_ETAF = Format((ds.Tables(0).Rows(i_loop)("ETAFactory")), "yyyy-MM-dd")
-                    ls_Aff = Trim(ds.Tables(0).Rows(i_loop)("AFF"))
-                    ls_Consignee = Trim(ds.Tables(0).Rows(i_loop)("Consignee"))
-                    ls_AFFName = Trim(ds.Tables(0).Rows(i_loop)("AFFName"))
-                    ls_AffADD = Trim(ds.Tables(0).Rows(i_loop)("AFFAddress"))
-                    ls_PEriod = Format((ds.Tables(0).Rows(i_loop)("Period")), "yyyy-MM")
-                    ls_Attn = Trim(ds.Tables(0).Rows(i_loop)("attn"))
-                    ls_Telp = Trim(ds.Tables(0).Rows(i_loop)("telp"))
-                    ls_sts = Trim(ds.Tables(0).Rows(i_loop)("sts"))
+                    pFilename_e = "" : pFileName_e2 = ""
 
-                    If ls_FinalApprovalCls = "1" Then
-                        Call InsertPrintLabel(ls_orderNo, ls_orderNoSplit, ls_Aff, ls_Supplier, Format((ds.Tables(0).Rows(i_loop)("ETDVendor")), "yyyy"), Format((ds.Tables(0).Rows(i_loop)("ETDVendor")), "MM"))
-                    End If
-                End If
+                    '================================DELIVERY CONFIRMATION==================================
+                    Dim fi As New FileInfo(Trim(txtAttachmentDOM.Text) & "\Template Customer Delivery Confirmation.xlsm")
 
-                dsDetailDelivery = BidDataDeliveryConfirm(ls_orderNo, ls_orderNoSplit, ls_Aff, ls_Supplier)
-                If dsDetailDelivery.Tables(0).Rows.Count > 0 Then
-                    Dim dsEmail As New DataSet
-                    dsEmail = EmailToEmailCCKanban_Export(ls_Aff, ls_Supplier)
-                    '1 CC Affiliate
-                    '2 CC PASI
-                    '3 CC & TO Supplier
-                    For i = 0 To dsEmail.Tables(0).Rows.Count - 1
-                        If receiptCCEmail = "" Then
-                            receiptCCEmail = dsEmail.Tables(0).Rows(i)("KanbanCC")
-                        Else
-                            receiptCCEmail = receiptCCEmail & ";" & dsEmail.Tables(0).Rows(i)("KanbanCC")
-                        End If
-
-                        If dsEmail.Tables(0).Rows(i)("KanbanTO") <> "" Then
-                            receiptEmail = dsEmail.Tables(0).Rows(i)("KanbanTO")
-                        End If
-                    Next
-
-                    Dim k As Long
-                    Dim dsAffiliate As New DataSet
-                    dsAffiliate = Affiliate(Trim(ls_Aff))
-
-                    Dim dsSupplier As New DataSet
-                    dsSupplier = Supplier(Trim(ls_Supplier))
-
-                    Dim status As Boolean
-                    status = True
-
-                    If dsDetailDelivery.Tables(0).Rows.Count = 0 Then
-                        status = False
-                    Else
-                        If ls_FinalApprovalCls = "3" And Trim(ds.Tables(0).Rows(i_loop)("SplitReffPONo")) = "" Then
-                            status = False
-                        Else
-                            status = True
-                        End If
-                    End If
-
-                    If status = True Then
-                        NewFileCopy = Trim(txtAttachmentDOM.Text) & "\Template Customer Delivery Confirmation.xlsm"
-                        ls_file = NewFileCopy
-
-                        ExcelBook = xlApp.Workbooks.Open(ls_file)
-                        ExcelSheet = CType(ExcelBook.Worksheets(sheetNumber), Excel.Worksheet)
-
-                        ExcelSheet.Range("H2").Value = receiptEmail.Trim
-                        ExcelSheet.Range("H3").Value = ls_Aff.Trim
-                        ExcelSheet.Range("H4").Value = ls_delivery.Trim
-                        ExcelSheet.Range("H5").Value = ls_Supplier.Trim
-
-                        If ls_Comercial = "0" Then
-                            ExcelSheet.Range("AP11").Value = "NO"
-                        Else
-                            ExcelSheet.Range("AP11").Value = "YES"
-                        End If
-
-                        ExcelSheet.Range("I11:X11").Value = ls_supplierName.Trim
-                        ExcelSheet.Range("I12:X15").Value = ls_supplierAdd.Trim
-
-                        ExcelSheet.Range("I19:X19").Value = ls_DeliveryName.Trim
-                        ExcelSheet.Range("I20:X22").Value = ls_deliveryAdd.Trim
-                        ExcelSheet.Range("I23:X23").Value = "ATTN : " & Trim(ls_Attn) & "     TELP : " & Trim(ls_Telp)
-
-                        ExcelSheet.Range("AE19:AT19").Value = Trim(dsAffiliate.Tables(0).Rows(0)("ConsigneeName"))
-                        ExcelSheet.Range("AE20:AT22").Value = Trim(dsAffiliate.Tables(0).Rows(0)("ConsigneeAddress"))
-
-                        ExcelSheet.Range("AE11:AI11").Value = ls_PEriod
-
-                        If newDN = False Then
-                            ExcelSheet.Range("AE13:AI13").Value = ls_orderNoSplit.Trim
-                            If ls_orderNo <> ls_orderNoSplit Then
-                                ExcelSheet.Range("AE15:AI15").Value = ls_orderNo.Trim
-                            End If
-                        Else
-                            ExcelSheet.Range("AE13:AI13").Value = ls_orderNoSplit.Trim
-                            If ls_orderNo <> ls_orderNoSplit Then
-                                ExcelSheet.Range("AE15:AI15").Value = ls_orderNo.Trim
-                            End If
-                        End If
-
-                        ExcelSheet.Range("AE17:AI17").Value = ls_ETDV
-
-                        k = 0
-                        For j = 0 To dsDetailDelivery.Tables(0).Rows.Count - 1
-                            Dim newKanbanNo As String = ""
-                            If newDN = False Then
-                                ExcelSheet.Range("B" & k + 34 & ": C" & k + 34).Merge()
-                                ExcelSheet.Range("D" & k + 34 & ": H" & k + 34).Merge()
-                                ExcelSheet.Range("I" & k + 34 & ": M" & k + 34).Merge()
-                                ExcelSheet.Range("N" & k + 34 & ": V" & k + 34).Merge()
-                                ExcelSheet.Range("W" & k + 34 & ": Z" & k + 34).Merge()
-                                ExcelSheet.Range("AA" & k + 34 & ": AB" & k + 34).Merge()
-                                ExcelSheet.Range("AC" & k + 34 & ": AD" & k + 34).Merge()
-                                ExcelSheet.Range("AE" & k + 34 & ": AH" & k + 34).Merge()
-                                ExcelSheet.Range("AI" & k + 34 & ": AL" & k + 34).Merge()
-                                ExcelSheet.Range("AM" & k + 34 & ": AP" & k + 34).Merge()
-                                ExcelSheet.Range("AQ" & k + 34 & ": AT" & k + 34).Merge()
-
-                                ExcelSheet.Range("B" & k + 34 & ": C" & k + 34).Value = k + 1
-                                ExcelSheet.Range("D" & k + 34 & ": H" & k + 34).Value = ls_orderNo '
-                                ExcelSheet.Range("I" & k + 34 & ": M" & k + 34).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("Partno"))
-                                ExcelSheet.Range("N" & k + 34 & ": V" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("PartName")
-                                ExcelSheet.Range("W" & k + 34 & ": Z" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("labelno") ''
-                                ExcelSheet.Range("AA" & k + 34 & ": AB" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("UOM")
-                                ExcelSheet.Range("AC" & k + 34 & ": AD" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("MOQ")
-                                ExcelSheet.Range("AE" & k + 34 & ": AH" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
-                                ExcelSheet.Range("AE" & i + 34 & ": AH" & i + 34).NumberFormat = "#,##0"
-                                ExcelSheet.Range("AI" & k + 34 & ": AL" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
-                                ExcelSheet.Range("AI" & i + 34 & ": AL" & i + 34).NumberFormat = "#,##0"
-                                ExcelSheet.Range("AM" & k + 34 & ": AP" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
-                                ExcelSheet.Range("AM" & i + 34 & ": AP" & i + 34).NumberFormat = "#,##0"
-                                ExcelSheet.Range("AQ" & k + 34 & ": AT" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("TotalPOQty")
-                                ExcelSheet.Range("AQ" & i + 34 & ": AT" & i + 34).NumberFormat = "#,##0"
-                            Else
-                                ExcelSheet.Range("B" & k + 34 & ": C" & k + 34).Merge()
-                                ExcelSheet.Range("D" & k + 34 & ": H" & k + 34).Merge()
-                                ExcelSheet.Range("I" & k + 34 & ": M" & k + 34).Merge()
-                                ExcelSheet.Range("N" & k + 34 & ": V" & k + 34).Merge()
-                                ExcelSheet.Range("W" & k + 34 & ": Y" & k + 34).Merge()
-                                ExcelSheet.Range("Z" & k + 34 & ": AB" & k + 34).Merge()
-                                ExcelSheet.Range("AC" & k + 34 & ": AD" & k + 34).Merge()
-                                ExcelSheet.Range("AE" & k + 34 & ": AF" & k + 34).Merge()
-                                ExcelSheet.Range("AG" & k + 34 & ": AJ" & k + 34).Merge()
-                                ExcelSheet.Range("AK" & k + 34 & ": AN" & k + 34).Merge()
-                                ExcelSheet.Range("AO" & k + 34 & ": AR" & k + 34).Merge()
-                                ExcelSheet.Range("AS" & k + 34 & ": AV" & k + 34).Merge()
-
-                                ExcelSheet.Range("B" & k + 34 & ": C" & k + 34).Value = k + 1
-                                ExcelSheet.Range("D" & k + 34 & ": H" & k + 34).Value = ls_orderNo '
-                                ExcelSheet.Range("I" & k + 34 & ": M" & k + 34).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("Partno"))
-                                ExcelSheet.Range("N" & k + 34 & ": V" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("PartName")
-                                ExcelSheet.Range("W" & k + 34 & ": Y" & k + 34).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("labelno1"))
-                                ExcelSheet.Range("Z" & k + 34 & ": AB" & k + 34).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("labelno2"))
-                                ExcelSheet.Range("AC" & k + 34 & ": AD" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("UOM")
-                                ExcelSheet.Range("AE" & k + 34 & ": AF" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("MOQ")
-                                ExcelSheet.Range("AG" & k + 34 & ": AJ" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
-                                ExcelSheet.Range("AG" & i + 34 & ": AJ" & i + 34).NumberFormat = "#,##0"
-                                ExcelSheet.Range("AK" & k + 34 & ": AN" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
-                                ExcelSheet.Range("AK" & i + 34 & ": AN" & i + 34).NumberFormat = "#,##0"
-                                ExcelSheet.Range("AO" & k + 34 & ": AR" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
-                                ExcelSheet.Range("AO" & i + 34 & ": AR" & i + 34).NumberFormat = "#,##0"
-                                ExcelSheet.Range("AS" & k + 34 & ": AV" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("TotalPOQty")
-                                ExcelSheet.Range("AS" & i + 34 & ": AV" & i + 34).NumberFormat = "#,##0"
-                            End If
-                            k = k + 1
-                        Next
-
-                        ExcelSheet.Range("B35").Interior.Color = Color.White
-                        ExcelSheet.Range("B35").Font.Color = Color.Black
-                        ExcelSheet.Range("B" & k + 34).Value = "E"
-                        ExcelSheet.Range("B" & k + 34).Interior.Color = Color.Black
-                        ExcelSheet.Range("B" & k + 34).Font.Color = Color.White
-
-                        k = k - 1
-                        DrawAllBorders(ExcelSheet.Range("B34" & ": AV" & k + 34))
-                        ExcelSheet.Range("AM34" & ": AP" & k + 34).Interior.Color = Color.Yellow
-                        ExcelSheet.Range("W34" & ": AB" & k + 34).Interior.Color = Color.Yellow
-
-                        'Save ke Local
-                        xlApp.DisplayAlerts = False
-
-                        If pFilename_e = "" Then
-                            If ls_orderNo <> ls_orderNoSplit Then
-                                ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm")
-                                pFilename_e = "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm"
-                            Else
-                                ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm")
-                                pFilename_e = "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm"
-                            End If
-                        Else
-                            If ls_orderNo <> ls_orderNoSplit Then
-                                ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm")
-                                pFileName_e2 = "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm"
-                            Else
-                                ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm")
-                                pFileName_e2 = "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm"
-                            End If
-                        End If
-
-                        xlApp.Workbooks.Close()
-                        xlApp.Quit()
-
-                        'If booSplit Then GoTo Split
-                    End If
-                End If
-                '================================DELIVERY CONFIRMATION==================================
-
-                '=======================================LABEL===========================================
-                If ls_FinalApprovalCls = "1" Then
-                    Dim fi2 As New FileInfo(Trim(txtAttachmentDOM.Text) & "\Print label2.xlsm")
-
-                    If Not fi2.Exists Then
+                    If Not fi.Exists Then
                         rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Customer Delivery Confirmation STOPPED, because File Excel isn't Found " & vbCrLf & _
                                         rtbProcess.Text
                         Exit Sub
                     End If
 
-                    dsDetailDelivery = BindDataLabelPrint(ls_orderNo, ls_orderNoSplit, ls_Aff, ls_Supplier)
+                    ls_Comercial = Trim(ds.Tables(0).Rows(i_loop)("CommercialCls"))
 
+                    ls_FinalApprovalCls = Trim(ds.Tables(0).Rows(i_loop)("FinalApprovalCls"))
+                    If ls_FinalApprovalCls = "3" And Trim(ds.Tables(0).Rows(i_loop)("SplitReffPONo")) <> "" Then
+                        'booSplit = True
+
+                        ls_sql = " select distinct sts = '0', Consignee = isnull(MA.ConsigneeCode,''),attn = isnull(MF.Attn,''), telp = isnull(MF.MobilePhone,''), PME.Period, PME.PONo, PME.OrderNo1 as orderNo, PME.AffiliateID, PME.SupplierID,MS.SupplierName,isnull(MS.Address,'') SUPPAddress,  " & vbCrLf & _
+                                 " PME.ForwarderID, MF.ForwarderName, isnull(MF.Address,'')  FWDAddress, ETDVendor1 as ETDVendor, ETDPort1 as ETDPort, ETAPort1 as ETAPort, ETAFactory1 as ETAFactory, " & vbCrLf & _
+                                 " PME.AffiliateID as AFF, MA.AffiliateName as AFFName, isnull(MA.Address,'') AFFAddress, DefectRecQty = 0, isnull(FinalApprovalCls,0) FinalApprovalCls, ISNULL(PME.SplitReffPONo, '') SplitReffPONo " & vbCrLf & _
+                                 " FROM PO_Master_Export PME  " & vbCrLf & _
+                                 " LEFT JOIN MS_Supplier MS ON MS.SupplierID = PME.SupplierID " & vbCrLf & _
+                                 " LEFT JOIN MS_Forwarder MF ON MF.ForwarderID = PME.ForwarderID " & vbCrLf & _
+                                 " LEFT JOIN MS_Affiliate MA ON MA.AffiliateID = PME.AffiliateID " & vbCrLf & _
+                                 " WHERE PME.PONo = '" & Trim(ds.Tables(0).Rows(i_loop)("PONo")) & "' " & vbCrLf & _
+                                 " AND PME.AffiliateID = '" & Trim(ds.Tables(0).Rows(i_loop)("AffiliateID")) & "' " & vbCrLf & _
+                                 " AND PME.SupplierID = '" & Trim(ds.Tables(0).Rows(i_loop)("SupplierID")) & "' " & vbCrLf & _
+                                 " AND PME.SplitReffPONo = '" & Trim(ds.Tables(0).Rows(i_loop)("SplitReffPONo")) & "' "
+
+                        dsSplit = cls.uf_GetDataSet(ls_sql)
+
+                        ls_SJ = ""
+                        ls_orderNoSplit = Trim(dsSplit.Tables(0).Rows(0)("OrderNo"))
+                        ls_Supplier = Trim(dsSplit.Tables(0).Rows(0)("supplierID"))
+                        ls_supplierName = Trim(dsSplit.Tables(0).Rows(0)("suppliername"))
+                        ls_supplierAdd = Trim(dsSplit.Tables(0).Rows(0)("SuppAddress"))
+                        ls_delivery = Trim(dsSplit.Tables(0).Rows(0)("ForwarderID"))
+                        ls_DeliveryName = Trim(dsSplit.Tables(0).Rows(0)("ForwarderName"))
+                        ls_deliveryAdd = Trim(dsSplit.Tables(0).Rows(0)("FWDAddress"))
+                        ls_orderNo = Trim(dsSplit.Tables(0).Rows(0)("PONo"))
+                        ls_ETDV = Format((dsSplit.Tables(0).Rows(0)("ETDVendor")), "yyyy-MM-dd")
+                        ls_ETDP = Format((dsSplit.Tables(0).Rows(0)("ETDPort")), "yyyy-MM-dd")
+                        ls_ETAP = Format((dsSplit.Tables(0).Rows(0)("ETAPort")), "yyyy-MM-dd")
+                        ls_ETAF = Format((dsSplit.Tables(0).Rows(0)("ETAFactory")), "yyyy-MM-dd")
+                        ls_Aff = Trim(dsSplit.Tables(0).Rows(0)("AFF"))
+                        ls_Consignee = Trim(dsSplit.Tables(0).Rows(0)("Consignee"))
+                        ls_AFFName = Trim(dsSplit.Tables(0).Rows(0)("AFFName"))
+                        ls_AffADD = Trim(dsSplit.Tables(0).Rows(0)("AFFAddress"))
+                        ls_PEriod = Format((dsSplit.Tables(0).Rows(0)("Period")), "yyyy-MM")
+                        ls_Attn = Trim(dsSplit.Tables(0).Rows(0)("attn"))
+                        ls_Telp = Trim(dsSplit.Tables(0).Rows(0)("telp"))
+                        ls_sts = Trim(dsSplit.Tables(0).Rows(0)("sts"))
+                    Else
+Split:
+                        'booSplit = False
+                        ls_SJ = ""
+                        ls_orderNoSplit = Trim(ds.Tables(0).Rows(i_loop)("OrderNo"))
+                        ls_Supplier = Trim(ds.Tables(0).Rows(i_loop)("supplierID"))
+                        ls_supplierName = Trim(ds.Tables(0).Rows(i_loop)("suppliername"))
+                        ls_supplierAdd = Trim(ds.Tables(0).Rows(i_loop)("SuppAddress"))
+                        ls_delivery = Trim(ds.Tables(0).Rows(i_loop)("ForwarderID"))
+                        ls_DeliveryName = Trim(ds.Tables(0).Rows(i_loop)("ForwarderName"))
+                        ls_deliveryAdd = Trim(ds.Tables(0).Rows(i_loop)("FWDAddress"))
+                        ls_orderNo = Trim(ds.Tables(0).Rows(i_loop)("PONo"))
+                        ls_ETDV = Format((ds.Tables(0).Rows(i_loop)("ETDVendor")), "yyyy-MM-dd")
+                        ls_ETDP = Format((ds.Tables(0).Rows(i_loop)("ETDPort")), "yyyy-MM-dd")
+                        ls_ETAP = Format((ds.Tables(0).Rows(i_loop)("ETAPort")), "yyyy-MM-dd")
+                        ls_ETAF = Format((ds.Tables(0).Rows(i_loop)("ETAFactory")), "yyyy-MM-dd")
+                        ls_Aff = Trim(ds.Tables(0).Rows(i_loop)("AFF"))
+                        ls_Consignee = Trim(ds.Tables(0).Rows(i_loop)("Consignee"))
+                        ls_AFFName = Trim(ds.Tables(0).Rows(i_loop)("AFFName"))
+                        ls_AffADD = Trim(ds.Tables(0).Rows(i_loop)("AFFAddress"))
+                        ls_PEriod = Format((ds.Tables(0).Rows(i_loop)("Period")), "yyyy-MM")
+                        ls_Attn = Trim(ds.Tables(0).Rows(i_loop)("attn"))
+                        ls_Telp = Trim(ds.Tables(0).Rows(i_loop)("telp"))
+                        ls_sts = Trim(ds.Tables(0).Rows(i_loop)("sts"))
+
+                        If ls_FinalApprovalCls = "1" Then
+                            Call InsertPrintLabel(ls_orderNo, ls_orderNoSplit, ls_Aff, ls_Supplier, Format((ds.Tables(0).Rows(i_loop)("ETDVendor")), "yyyy"), Format((ds.Tables(0).Rows(i_loop)("ETDVendor")), "MM"))
+                        End If
+                    End If
+
+                    dsDetailDelivery = BidDataDeliveryConfirm(ls_orderNo, ls_orderNoSplit, ls_Aff, ls_Supplier)
+                    If dsDetailDelivery.Tables(0).Rows.Count > 0 Then
+                        Dim dsEmail As New DataSet
+                        dsEmail = EmailToEmailCCKanban_Export(ls_Aff, ls_Supplier)
+                        '1 CC Affiliate
+                        '2 CC PASI
+                        '3 CC & TO Supplier
+                        For i = 0 To dsEmail.Tables(0).Rows.Count - 1
+                            If receiptCCEmail = "" Then
+                                receiptCCEmail = dsEmail.Tables(0).Rows(i)("KanbanCC")
+                            Else
+                                receiptCCEmail = receiptCCEmail & ";" & dsEmail.Tables(0).Rows(i)("KanbanCC")
+                            End If
+
+                            If dsEmail.Tables(0).Rows(i)("KanbanTO") <> "" Then
+                                receiptEmail = dsEmail.Tables(0).Rows(i)("KanbanTO")
+                            End If
+                        Next
+
+                        Dim k As Long
+                        Dim dsAffiliate As New DataSet
+                        dsAffiliate = Affiliate(Trim(ls_Aff))
+
+                        Dim dsSupplier As New DataSet
+                        dsSupplier = Supplier(Trim(ls_Supplier))
+
+                        Dim status As Boolean
+                        status = True
+
+                        If dsDetailDelivery.Tables(0).Rows.Count = 0 Then
+                            status = False
+                        Else
+                            If ls_FinalApprovalCls = "3" And Trim(ds.Tables(0).Rows(i_loop)("SplitReffPONo")) = "" Then
+                                status = False
+                            Else
+                                status = True
+                            End If
+                        End If
+
+                        If status = True Then
+                            NewFileCopy = Trim(txtAttachmentDOM.Text) & "\Template Customer Delivery Confirmation.xlsm"
+                            ls_file = NewFileCopy
+
+                            ExcelBook = xlApp.Workbooks.Open(ls_file)
+                            ExcelSheet = CType(ExcelBook.Worksheets(sheetNumber), Excel.Worksheet)
+
+                            ExcelSheet.Range("H2").Value = receiptEmail.Trim
+                            ExcelSheet.Range("H3").Value = ls_Aff.Trim
+                            ExcelSheet.Range("H4").Value = ls_delivery.Trim
+                            ExcelSheet.Range("H5").Value = ls_Supplier.Trim
+
+                            If ls_Comercial = "0" Then
+                                ExcelSheet.Range("AP11").Value = "NO"
+                            Else
+                                ExcelSheet.Range("AP11").Value = "YES"
+                            End If
+
+                            ExcelSheet.Range("I11:X11").Value = ls_supplierName.Trim
+                            ExcelSheet.Range("I12:X15").Value = ls_supplierAdd.Trim
+
+                            ExcelSheet.Range("I19:X19").Value = ls_DeliveryName.Trim
+                            ExcelSheet.Range("I20:X22").Value = ls_deliveryAdd.Trim
+                            ExcelSheet.Range("I23:X23").Value = "ATTN : " & Trim(ls_Attn) & "     TELP : " & Trim(ls_Telp)
+
+                            ExcelSheet.Range("AE19:AT19").Value = Trim(dsAffiliate.Tables(0).Rows(0)("ConsigneeName"))
+                            ExcelSheet.Range("AE20:AT22").Value = Trim(dsAffiliate.Tables(0).Rows(0)("ConsigneeAddress"))
+
+                            ExcelSheet.Range("AE11:AI11").Value = ls_PEriod
+
+                            If newDN = False Then
+                                ExcelSheet.Range("AE13:AI13").Value = ls_orderNoSplit.Trim
+                                If ls_orderNo <> ls_orderNoSplit Then
+                                    ExcelSheet.Range("AE15:AI15").Value = ls_orderNo.Trim
+                                End If
+                            Else
+                                ExcelSheet.Range("AE13:AI13").Value = ls_orderNoSplit.Trim
+                                If ls_orderNo <> ls_orderNoSplit Then
+                                    ExcelSheet.Range("AE15:AI15").Value = ls_orderNo.Trim
+                                End If
+                            End If
+
+                            ExcelSheet.Range("AE17:AI17").Value = ls_ETDV
+
+                            k = 0
+                            For j = 0 To dsDetailDelivery.Tables(0).Rows.Count - 1
+                                Dim newKanbanNo As String = ""
+                                If newDN = False Then
+                                    ExcelSheet.Range("B" & k + 34 & ": C" & k + 34).Merge()
+                                    ExcelSheet.Range("D" & k + 34 & ": H" & k + 34).Merge()
+                                    ExcelSheet.Range("I" & k + 34 & ": M" & k + 34).Merge()
+                                    ExcelSheet.Range("N" & k + 34 & ": V" & k + 34).Merge()
+                                    ExcelSheet.Range("W" & k + 34 & ": Z" & k + 34).Merge()
+                                    ExcelSheet.Range("AA" & k + 34 & ": AB" & k + 34).Merge()
+                                    ExcelSheet.Range("AC" & k + 34 & ": AD" & k + 34).Merge()
+                                    ExcelSheet.Range("AE" & k + 34 & ": AH" & k + 34).Merge()
+                                    ExcelSheet.Range("AI" & k + 34 & ": AL" & k + 34).Merge()
+                                    ExcelSheet.Range("AM" & k + 34 & ": AP" & k + 34).Merge()
+                                    ExcelSheet.Range("AQ" & k + 34 & ": AT" & k + 34).Merge()
+
+                                    ExcelSheet.Range("B" & k + 34 & ": C" & k + 34).Value = k + 1
+                                    ExcelSheet.Range("D" & k + 34 & ": H" & k + 34).Value = ls_orderNo '
+                                    ExcelSheet.Range("I" & k + 34 & ": M" & k + 34).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("Partno"))
+                                    ExcelSheet.Range("N" & k + 34 & ": V" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("PartName")
+                                    ExcelSheet.Range("W" & k + 34 & ": Z" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("labelno") ''
+                                    ExcelSheet.Range("AA" & k + 34 & ": AB" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("UOM")
+                                    ExcelSheet.Range("AC" & k + 34 & ": AD" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("MOQ")
+                                    ExcelSheet.Range("AE" & k + 34 & ": AH" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
+                                    ExcelSheet.Range("AE" & i + 34 & ": AH" & i + 34).NumberFormat = "#,##0"
+                                    ExcelSheet.Range("AI" & k + 34 & ": AL" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
+                                    ExcelSheet.Range("AI" & i + 34 & ": AL" & i + 34).NumberFormat = "#,##0"
+                                    ExcelSheet.Range("AM" & k + 34 & ": AP" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
+                                    ExcelSheet.Range("AM" & i + 34 & ": AP" & i + 34).NumberFormat = "#,##0"
+                                    ExcelSheet.Range("AQ" & k + 34 & ": AT" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("TotalPOQty")
+                                    ExcelSheet.Range("AQ" & i + 34 & ": AT" & i + 34).NumberFormat = "#,##0"
+                                Else
+                                    ExcelSheet.Range("B" & k + 34 & ": C" & k + 34).Merge()
+                                    ExcelSheet.Range("D" & k + 34 & ": H" & k + 34).Merge()
+                                    ExcelSheet.Range("I" & k + 34 & ": M" & k + 34).Merge()
+                                    ExcelSheet.Range("N" & k + 34 & ": V" & k + 34).Merge()
+                                    ExcelSheet.Range("W" & k + 34 & ": Y" & k + 34).Merge()
+                                    ExcelSheet.Range("Z" & k + 34 & ": AB" & k + 34).Merge()
+                                    ExcelSheet.Range("AC" & k + 34 & ": AD" & k + 34).Merge()
+                                    ExcelSheet.Range("AE" & k + 34 & ": AF" & k + 34).Merge()
+                                    ExcelSheet.Range("AG" & k + 34 & ": AJ" & k + 34).Merge()
+                                    ExcelSheet.Range("AK" & k + 34 & ": AN" & k + 34).Merge()
+                                    ExcelSheet.Range("AO" & k + 34 & ": AR" & k + 34).Merge()
+                                    ExcelSheet.Range("AS" & k + 34 & ": AV" & k + 34).Merge()
+
+                                    ExcelSheet.Range("B" & k + 34 & ": C" & k + 34).Value = k + 1
+                                    ExcelSheet.Range("D" & k + 34 & ": H" & k + 34).Value = ls_orderNo '
+                                    ExcelSheet.Range("I" & k + 34 & ": M" & k + 34).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("Partno"))
+                                    ExcelSheet.Range("N" & k + 34 & ": V" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("PartName")
+                                    ExcelSheet.Range("W" & k + 34 & ": Y" & k + 34).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("labelno1"))
+                                    ExcelSheet.Range("Z" & k + 34 & ": AB" & k + 34).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("labelno2"))
+                                    ExcelSheet.Range("AC" & k + 34 & ": AD" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("UOM")
+                                    ExcelSheet.Range("AE" & k + 34 & ": AF" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("MOQ")
+                                    ExcelSheet.Range("AG" & k + 34 & ": AJ" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
+                                    ExcelSheet.Range("AG" & i + 34 & ": AJ" & i + 34).NumberFormat = "#,##0"
+                                    ExcelSheet.Range("AK" & k + 34 & ": AN" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
+                                    ExcelSheet.Range("AK" & i + 34 & ": AN" & i + 34).NumberFormat = "#,##0"
+                                    ExcelSheet.Range("AO" & k + 34 & ": AR" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("SuppQty")
+                                    ExcelSheet.Range("AO" & i + 34 & ": AR" & i + 34).NumberFormat = "#,##0"
+                                    ExcelSheet.Range("AS" & k + 34 & ": AV" & k + 34).Value = dsDetailDelivery.Tables(0).Rows(j)("TotalPOQty")
+                                    ExcelSheet.Range("AS" & i + 34 & ": AV" & i + 34).NumberFormat = "#,##0"
+                                End If
+                                k = k + 1
+                            Next
+
+                            ExcelSheet.Range("B35").Interior.Color = Color.White
+                            ExcelSheet.Range("B35").Font.Color = Color.Black
+                            ExcelSheet.Range("B" & k + 34).Value = "E"
+                            ExcelSheet.Range("B" & k + 34).Interior.Color = Color.Black
+                            ExcelSheet.Range("B" & k + 34).Font.Color = Color.White
+
+                            k = k - 1
+                            DrawAllBorders(ExcelSheet.Range("B34" & ": AV" & k + 34))
+                            ExcelSheet.Range("AM34" & ": AP" & k + 34).Interior.Color = Color.Yellow
+                            ExcelSheet.Range("W34" & ": AB" & k + 34).Interior.Color = Color.Yellow
+
+                            'Save ke Local
+                            xlApp.DisplayAlerts = False
+
+                            If pFilename_e = "" Then
+                                If ls_orderNo <> ls_orderNoSplit Then
+                                    ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm")
+                                    pFilename_e = "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm"
+                                Else
+                                    ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm")
+                                    pFilename_e = "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm"
+                                End If
+                            Else
+                                If ls_orderNo <> ls_orderNoSplit Then
+                                    ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm")
+                                    pFileName_e2 = "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm"
+                                Else
+                                    ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm")
+                                    pFileName_e2 = "\DELIVERY CONFIRMATION-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm"
+                                End If
+                            End If
+
+                            xlApp.Workbooks.Close()
+                            xlApp.Quit()
+
+                            'If booSplit Then GoTo Split
+                        End If
+                    End If
+                    '================================DELIVERY CONFIRMATION==================================
+
+                    '=======================================LABEL===========================================
+                    If ls_FinalApprovalCls = "1" Then
+                        Dim fi2 As New FileInfo(Trim(txtAttachmentDOM.Text) & "\Print label2.xlsm")
+
+                        If Not fi2.Exists Then
+                            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Customer Delivery Confirmation STOPPED, because File Excel isn't Found " & vbCrLf & _
+                                            rtbProcess.Text
+                            Exit Sub
+                        End If
+
+                        dsDetailDelivery = BindDataLabelPrint(ls_orderNo, ls_orderNoSplit, ls_Aff, ls_Supplier)
+
+                        If dsDetailDelivery.Tables(0).Rows.Count > 0 Then
+                            Dim k As Long
+                            Dim dsAffiliate As New DataSet
+                            dsAffiliate = Affiliate(Trim(ls_Aff))
+
+                            Dim dsSupplier As New DataSet
+                            dsSupplier = Supplier(Trim(ls_Supplier))
+
+                            Dim status As Boolean
+                            status = True
+
+                            If dsDetailDelivery.Tables(0).Rows.Count = 0 Then
+                                status = False
+                            Else
+                                status = True
+                            End If
+
+                            If status = True Then
+                                NewFileCopy = Trim(txtAttachmentDOM.Text) & "\Print Label2.xlsm"
+                                ls_file = NewFileCopy
+                                ExcelBook = xlApp.Workbooks.Open(ls_file)
+                                ExcelSheet = CType(ExcelBook.Worksheets(sheetNumber), Excel.Worksheet)
+
+                                ExcelSheet.Range("I4:W4").Value = ls_AFFName
+                                ExcelSheet.Range("I6:U6").Value = ls_DeliveryName
+                                ExcelSheet.Range("I7:U9").Value = ls_deliveryAdd
+                                ExcelSheet.Range("AC6:AQ6").Value = ls_supplierName
+                                ExcelSheet.Range("AC7:AQ9").Value = ls_supplierAdd
+
+                                ExcelSheet.Range("I12:P12").Value = ls_PEriod
+                                ExcelSheet.Range("I14:P14").Value = Format(ls_ETDV, "dd-MMM-yyyy")
+
+                                k = 0
+
+                                For j = 0 To dsDetailDelivery.Tables(0).Rows.Count - 1
+                                    'For i = 0 To 3
+                                    k = k
+                                    Dim newKanbanNo As String = ""
+                                    ExcelSheet.Range("B" & k + 20 & ": C" & k + 20).Merge()
+                                    ExcelSheet.Range("D" & k + 20 & ": F" & k + 20).Merge()
+                                    ExcelSheet.Range("G" & k + 20 & ": I" & k + 20).Merge()
+                                    ExcelSheet.Range("J" & k + 20 & ": K" & k + 20).Merge()
+                                    ExcelSheet.Range("L" & k + 20 & ": P" & k + 20).Merge()
+                                    ExcelSheet.Range("Q" & k + 20 & ": X" & k + 20).Merge()
+                                    ExcelSheet.Range("Y" & k + 20 & ": AD" & k + 20).Merge()
+                                    ExcelSheet.Range("AE" & k + 20 & ": AI" & k + 20).Merge()
+                                    ExcelSheet.Range("AJ" & k + 20 & ": AK" & k + 20).Merge()
+                                    ExcelSheet.Range("AL" & k + 20 & ": AM" & k + 20).Merge()
+                                    ExcelSheet.Range("AN" & k + 20 & ": AQ" & k + 20).Merge()
+                                    ExcelSheet.Range("AR" & k + 20 & ": AT" & k + 20).Merge()
+
+                                    ExcelSheet.Range("J" & k + 20 & ": K" & k + 20).Value = k + 1
+                                    ExcelSheet.Range("D" & k + 20 & ": F" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("label1")
+                                    ExcelSheet.Range("G" & k + 20 & ": I" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("label2")
+                                    ExcelSheet.Range("L" & k + 20 & ": P" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("Partno")
+                                    ExcelSheet.Range("Q" & k + 20 & ": X" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("Partname")
+                                    ExcelSheet.Range("Y" & k + 20 & ": AD" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("labelNo")
+                                    ExcelSheet.Range("AE" & k + 20 & ": AI" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("OrderNo")
+                                    ExcelSheet.Range("AJ" & k + 20 & ": AK" & k + 20).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("Uom"))
+
+                                    ExcelSheet.Range("AL" & k + 20 & ": AM" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("QtyBox")
+                                    ExcelSheet.Range("AN" & k + 20 & ": AQ" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("Qty")
+                                    ExcelSheet.Range("AR" & k + 20 & ": AT" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("boxqty")
+                                    ExcelSheet.Range("AU" & k + 20 & ": AU" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("DestinationPort")
+                                    ExcelSheet.Range("AV" & k + 20 & ": AV" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("DestinationPoint")
+                                    ExcelSheet.Range("AW" & k + 20 & ": AW" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("custname")
+                                    ExcelSheet.Range("AX" & k + 20 & ": AX" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("custcode")
+                                    ExcelSheet.Range("AY" & k + 20 & ": AY" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("consigneecode")
+
+                                    k = k + 1
+                                Next
+
+                                ExcelSheet.Range("B21").Interior.Color = Color.White
+                                ExcelSheet.Range("B21" & ": I" & k + 19).Interior.Color = Color.Yellow
+                                ExcelSheet.Range("AN20" & ": AT" & k + 20).Font.Color = Color.Black
+                                ExcelSheet.Range("AU20" & ": AY" & k + 20).Font.Color = Color.White
+
+                                ExcelSheet.Range("D20" & ": J" & k + 20).HorizontalAlignment = Alignment.HorizontalCenterAlign
+                                ExcelSheet.Range("AJ20" & ": AL" & k + 20).HorizontalAlignment = Alignment.HorizontalCenterAlign
+
+                                ExcelSheet.Range("B21").Value = ""
+                                ExcelSheet.Range("B21").Font.Color = Color.Black
+
+                                ExcelSheet.Range("B" & k + 20).Value = "E"
+                                ExcelSheet.Range("B" & k + 20).Interior.Color = Color.Black
+                                ExcelSheet.Range("B" & k + 20).Font.Color = Color.White
+
+                                DrawAllBorders(ExcelSheet.Range("B20" & ": AT" & k + 19))
+
+                                'Save ke Local
+                                xlApp.DisplayAlerts = False
+
+                                If ls_orderNo <> ls_orderNoSplit Then
+                                    ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\Print Label-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm")
+                                    pFileName_e2 = "\Print Label-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm"
+                                Else
+                                    ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\Print Label-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm")
+                                    pFileName_e2 = "\Print Label-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm"
+                                End If
+
+                                xlApp.Workbooks.Close()
+                                xlApp.Quit()
+                            End If
+
+                            If ls_orderNo <> ls_orderNoSplit Then
+                                If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier & " Split (" & Trim(ls_orderNoSplit) & ")", ls_Supplier, pFilename_e, pFileName_e2, ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
+                            Else
+                                If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier, ls_Supplier, pFilename_e, pFileName_e2, ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
+                            End If
+                        End If
+                    ElseIf pFilename_e <> "" Then
+                        If ls_orderNo <> ls_orderNoSplit Then
+                            If pFileName_e2 = "" Then
+                                If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier & " Split (" & Trim(ls_orderNoSplit) & ")", ls_Supplier, pFilename_e, "", ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
+                            Else
+                                If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier & " Split (" & Trim(ls_orderNoSplit) & ")", ls_Supplier, pFilename_e, pFileName_e2, ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
+                            End If
+                        Else
+                            If pFileName_e2 = "" Then
+                                If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier, ls_Supplier, pFilename_e, "", ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
+                            Else
+                                If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier, ls_Supplier, pFilename_e, pFileName_e2, ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
+                            End If
+                        End If
+                    End If
+                    '=======================================LABEL===========================================
+
+                    '==================================ORDER CONFIRMATION===================================
+                    pFilename_e = "" : pFileName_e2 = ""
+
+                    dsDetailDelivery = BindDataOrderConfirmation(ls_orderNo, ls_orderNoSplit, ls_Aff, ls_Supplier)
                     If dsDetailDelivery.Tables(0).Rows.Count > 0 Then
                         Dim k As Long
                         Dim dsAffiliate As New DataSet
@@ -2197,249 +2516,119 @@ Split:
                         End If
 
                         If status = True Then
-                            NewFileCopy = Trim(txtAttachmentDOM.Text) & "\Print Label2.xlsm"
+                            NewFileCopy = Trim(txtAttachmentDOM.Text) & "\Template Customer Order Confirmation.xlsx"
                             ls_file = NewFileCopy
                             ExcelBook = xlApp.Workbooks.Open(ls_file)
                             ExcelSheet = CType(ExcelBook.Worksheets(sheetNumber), Excel.Worksheet)
 
-                            ExcelSheet.Range("I4:W4").Value = ls_AFFName
-                            ExcelSheet.Range("I6:U6").Value = ls_DeliveryName
-                            ExcelSheet.Range("I7:U9").Value = ls_deliveryAdd
-                            ExcelSheet.Range("AC6:AQ6").Value = ls_supplierName
-                            ExcelSheet.Range("AC7:AQ9").Value = ls_supplierAdd
+                            ExcelSheet.Range("A7:BA7").Value = IIf(dsDetailDelivery.Tables(0).Rows(0)("EmergencyCls") = "M", "PASI FINAL APPROVAL PO (MONTHLY)", "PASI FINAL APPROVAL PO (EMERGENCY)")
+                            ExcelSheet.Range("H1").Value = "PFAM"
+                            ExcelSheet.Range("H2").Value = receiptEmail.Trim
+                            ExcelSheet.Range("H3").Value = ls_Consignee.Trim
+                            ExcelSheet.Range("H4").Value = ls_delivery.Trim
+                            ExcelSheet.Range("H5").Value = ls_Supplier.Trim
 
-                            ExcelSheet.Range("I12:P12").Value = ls_PEriod
-                            ExcelSheet.Range("I14:P14").Value = Format(ls_ETDV, "dd-MMM-yyyy")
+                            ExcelSheet.Range("G11:K11").Value = dsDetailDelivery.Tables(0).Rows(0)("period")
+                            ExcelSheet.Range("G13:K13").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("OrderNo"))
+                            ExcelSheet.Range("G15:K15").Value = Trim(IIf(dsDetailDelivery.Tables(0).Rows(0)("OrderNo") <> dsDetailDelivery.Tables(0).Rows(0)("poNO"), dsDetailDelivery.Tables(0).Rows(0)("PoNo"), ""))
+                            ExcelSheet.Range("G17:K17").Value = IIf(dsDetailDelivery.Tables(0).Rows(0)("ShipBy") = "B", "BOAT", "AIR")
+
+                            ExcelSheet.Range("R11:V11").Value = dsDetailDelivery.Tables(0).Rows(0)("ETDVENDOR")
+                            ExcelSheet.Range("R13:V13").Value = dsDetailDelivery.Tables(0).Rows(0)("ETDPORT")
+                            ExcelSheet.Range("R15:V15").Value = dsDetailDelivery.Tables(0).Rows(0)("ETAPORT")
+                            ExcelSheet.Range("R17:V17").Value = dsDetailDelivery.Tables(0).Rows(0)("ETAFACTORY")
+
+                            ExcelSheet.Range("G19:V19").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("AFFName"))
+                            ExcelSheet.Range("G20:V22").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("AFFAdd"))
+
+                            ExcelSheet.Range("AE11:AT11").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("SuppName"))
+                            ExcelSheet.Range("AE12:AT15").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("SuppAdd"))
+
+                            ExcelSheet.Range("AE19:AT19").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("FWDName"))
+                            ExcelSheet.Range("AE20:AT22").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("FWDAdd"))
 
                             k = 0
-
                             For j = 0 To dsDetailDelivery.Tables(0).Rows.Count - 1
                                 'For i = 0 To 3
                                 k = k
                                 Dim newKanbanNo As String = ""
-                                ExcelSheet.Range("B" & k + 20 & ": C" & k + 20).Merge()
-                                ExcelSheet.Range("D" & k + 20 & ": F" & k + 20).Merge()
-                                ExcelSheet.Range("G" & k + 20 & ": I" & k + 20).Merge()
-                                ExcelSheet.Range("J" & k + 20 & ": K" & k + 20).Merge()
-                                ExcelSheet.Range("L" & k + 20 & ": P" & k + 20).Merge()
-                                ExcelSheet.Range("Q" & k + 20 & ": X" & k + 20).Merge()
-                                ExcelSheet.Range("Y" & k + 20 & ": AD" & k + 20).Merge()
-                                ExcelSheet.Range("AE" & k + 20 & ": AI" & k + 20).Merge()
-                                ExcelSheet.Range("AJ" & k + 20 & ": AK" & k + 20).Merge()
-                                ExcelSheet.Range("AL" & k + 20 & ": AM" & k + 20).Merge()
-                                ExcelSheet.Range("AN" & k + 20 & ": AQ" & k + 20).Merge()
-                                ExcelSheet.Range("AR" & k + 20 & ": AT" & k + 20).Merge()
 
-                                ExcelSheet.Range("J" & k + 20 & ": K" & k + 20).Value = k + 1
-                                ExcelSheet.Range("D" & k + 20 & ": F" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("label1")
-                                ExcelSheet.Range("G" & k + 20 & ": I" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("label2")
-                                ExcelSheet.Range("L" & k + 20 & ": P" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("Partno")
-                                ExcelSheet.Range("Q" & k + 20 & ": X" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("Partname")
-                                ExcelSheet.Range("Y" & k + 20 & ": AD" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("labelNo")
-                                ExcelSheet.Range("AE" & k + 20 & ": AI" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("OrderNo")
-                                ExcelSheet.Range("AJ" & k + 20 & ": AK" & k + 20).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("Uom"))
+                                ExcelSheet.Range("B" & k + 27 & ": C" & k + 27).Merge()
+                                ExcelSheet.Range("D" & k + 27 & ": H" & k + 27).Merge()
+                                ExcelSheet.Range("i" & k + 27 & ": P" & k + 27).Merge()
 
-                                ExcelSheet.Range("AL" & k + 20 & ": AM" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("QtyBox")
-                                ExcelSheet.Range("AN" & k + 20 & ": AQ" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("Qty")
-                                ExcelSheet.Range("AR" & k + 20 & ": AT" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("boxqty")
-                                ExcelSheet.Range("AU" & k + 20 & ": AU" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("DestinationPort")
-                                ExcelSheet.Range("AV" & k + 20 & ": AV" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("DestinationPoint")
-                                ExcelSheet.Range("AW" & k + 20 & ": AW" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("custname")
-                                ExcelSheet.Range("AX" & k + 20 & ": AX" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("custcode")
-                                ExcelSheet.Range("AY" & k + 20 & ": AY" & k + 20).Value = dsDetailDelivery.Tables(0).Rows(j)("consigneecode")
+                                ExcelSheet.Range("Q" & k + 27 & ": R" & k + 27).Merge()
+                                ExcelSheet.Range("S" & k + 27 & ": T" & k + 27).Merge()
+                                ExcelSheet.Range("U" & k + 27 & ": X" & k + 27).Merge()
+
+                                ExcelSheet.Range("Y" & k + 27 & ": AB" & k + 27).Merge()
+                                ExcelSheet.Range("AC" & k + 27 & ": AF" & k + 27).Merge()
+                                ExcelSheet.Range("AG" & k + 27 & ": AJ" & k + 27).Merge()
+                                ExcelSheet.Range("AK" & k + 27 & ": AN" & k + 27).Merge()
+                                ExcelSheet.Range("AO" & k + 27 & ": AQ" & k + 27).Merge()
+                                ExcelSheet.Range("AR" & k + 27 & ": AT" & k + 27).Merge()
+                                ExcelSheet.Range("AU" & k + 27 & ": AW" & k + 27).Merge()
+                                ExcelSheet.Range("AX" & k + 27 & ": AZ" & k + 27).Merge()
+                                ExcelSheet.Range("BA" & k + 27 & ": BC" & k + 27).Merge()
+
+                                ExcelSheet.Range("B" & k + 27 & ": C" & k + 27).Value = k + 1
+                                ExcelSheet.Range("D" & k + 27 & ": H" & k + 27).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("Partno"))
+                                ExcelSheet.Range("i" & k + 27 & ": P" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("PartName")
+                                ExcelSheet.Range("Q" & k + 27 & ": R" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("UOM")
+                                ExcelSheet.Range("S" & k + 27 & ": T" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("QtyBox")
+                                ExcelSheet.Range("S" & k + 27 & ": T" & k + 27).NumberFormat = "#,##0"
+                                ExcelSheet.Range("U" & k + 27 & ": X" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Qty")
+                                ExcelSheet.Range("U" & k + 27 & ": X" & k + 27).NumberFormat = "#,##0"
+                                ExcelSheet.Range("Y" & k + 27 & ": AB" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("SupplierQty")
+                                ExcelSheet.Range("Y" & k + 27 & ": AB" & k + 27).NumberFormat = "#,##0"
+                                ExcelSheet.Range("AC" & k + 27 & ": AF" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("TotalBox")
+                                ExcelSheet.Range("AC" & k + 27 & ": AF" & k + 27).NumberFormat = "#,##0"
+                                ExcelSheet.Range("AG" & k + 27 & ": AJ" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("TotalNet")
+                                ExcelSheet.Range("AG" & k + 27 & ": AJ" & k + 27).NumberFormat = "#,##0.00"
+                                ExcelSheet.Range("AK" & k + 27 & ": AN" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Volume")
+                                ExcelSheet.Range("AK" & k + 27 & ": AN" & k + 27).NumberFormat = "#,##0.00"
+                                ExcelSheet.Range("AO" & k + 27 & ": AQ" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Length")
+                                ExcelSheet.Range("AO" & k + 27 & ": AQ" & k + 27).NumberFormat = "#,##0.00"
+                                ExcelSheet.Range("AR" & k + 27 & ": AT" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Width")
+                                ExcelSheet.Range("AR" & k + 27 & ": AT" & k + 27).NumberFormat = "#,##0.00"
+                                ExcelSheet.Range("AU" & k + 27 & ": AW" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Height")
+                                ExcelSheet.Range("AU" & k + 27 & ": AW" & k + 27).NumberFormat = "#,##0.00"
+                                ExcelSheet.Range("AX" & k + 27 & ": AZ" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Gross")
+                                ExcelSheet.Range("AX" & k + 27 & ": AZ" & k + 27).NumberFormat = "#,##0.00"
+                                ExcelSheet.Range("BA" & k + 27 & ": BC" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("BoxPallet")
+                                ExcelSheet.Range("BA" & k + 27 & ": BC" & k + 27).NumberFormat = "#,##0"
 
                                 k = k + 1
                             Next
 
-                            ExcelSheet.Range("B21").Interior.Color = Color.White
-                            ExcelSheet.Range("B21" & ": I" & k + 19).Interior.Color = Color.Yellow
-                            ExcelSheet.Range("AN20" & ": AT" & k + 20).Font.Color = Color.Black
-                            ExcelSheet.Range("AU20" & ": AY" & k + 20).Font.Color = Color.White
-
-                            ExcelSheet.Range("D20" & ": J" & k + 20).HorizontalAlignment = Alignment.HorizontalCenterAlign
-                            ExcelSheet.Range("AJ20" & ": AL" & k + 20).HorizontalAlignment = Alignment.HorizontalCenterAlign
-
-                            ExcelSheet.Range("B21").Value = ""
-                            ExcelSheet.Range("B21").Font.Color = Color.Black
-
-                            ExcelSheet.Range("B" & k + 20).Value = "E"
-                            ExcelSheet.Range("B" & k + 20).Interior.Color = Color.Black
-                            ExcelSheet.Range("B" & k + 20).Font.Color = Color.White
-
-                            DrawAllBorders(ExcelSheet.Range("B20" & ": AT" & k + 19))
+                            DrawAllBorders(ExcelSheet.Range("B27" & ": BC" & k + 26))
 
                             'Save ke Local
                             xlApp.DisplayAlerts = False
 
                             If ls_orderNo <> ls_orderNoSplit Then
-                                ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\Print Label-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm")
-                                pFileName_e2 = "\Print Label-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ")-" & Trim(ls_Supplier) & ".xlsm"
+                                ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\PASI FINAL APPROVAL-" & Trim(ls_Aff) & "-" & Trim(ls_Supplier) & "-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ").xlsx")
+                                pFilename_e = "\PASI FINAL APPROVAL-" & Trim(ls_Aff) & "-" & Trim(ls_Supplier) & "-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ").xlsx"
                             Else
-                                ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\Print Label-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm")
-                                pFileName_e2 = "\Print Label-" & Trim(ls_orderNo) & "-" & Trim(ls_Supplier) & ".xlsm"
+                                ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\PASI FINAL APPROVAL-" & Trim(ls_Aff) & "-" & Trim(ls_Supplier) & "-" & Trim(ls_orderNo) & ".xlsx")
+                                pFilename_e = "\PASI FINAL APPROVAL-" & Trim(ls_Aff) & "-" & Trim(ls_Supplier) & "-" & Trim(ls_orderNo) & ".xlsx"
                             End If
 
                             xlApp.Workbooks.Close()
                             xlApp.Quit()
                         End If
 
-                        If ls_orderNo <> ls_orderNoSplit Then
-                            If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier & " Split (" & Trim(ls_orderNoSplit) & ")", ls_Supplier, pFilename_e, pFileName_e2, ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
-                        Else
-                            If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier, ls_Supplier, pFilename_e, pFileName_e2, ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
-                        End If
+                        If pFilename_e = "" Then GoTo keluar
+                        If sendEmailtoSupllierDeliveryConfirmation("DELIVERY", pFilename_e, "", Trim(ls_orderNo), Trim(ls_delivery), Trim(ls_Aff), Trim(ls_orderNoSplit), Trim(ls_Supplier), Trim(ls_SJ)) = False Then GoTo keluar
                     End If
-                ElseIf pFilename_e <> "" Then
-                    If ls_orderNo <> ls_orderNoSplit Then
-                        If pFileName_e2 = "" Then
-                            If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier & " Split (" & Trim(ls_orderNoSplit) & ")", ls_Supplier, pFilename_e, "", ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
-                        Else
-                            If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier & " Split (" & Trim(ls_orderNoSplit) & ")", ls_Supplier, pFilename_e, pFileName_e2, ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
-                        End If
-                    Else
-                        If pFileName_e2 = "" Then
-                            If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier, ls_Supplier, pFilename_e, "", ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
-                        Else
-                            If sendEmailPASI_EXPORT("Delivery Confirmation", "Delivery Confirmation : " & Trim(ls_orderNo) & "-" & ls_Supplier, ls_Supplier, pFilename_e, pFileName_e2, ls_orderNo, ls_orderNoSplit) = False Then GoTo keluar
-                        End If
-                    End If
-                End If
-                '=======================================LABEL===========================================
+                    '==================================ORDER CONFIRMATION===================================
 
-                '==================================ORDER CONFIRMATION===================================
-                pFilename_e = "" : pFileName_e2 = ""
-
-                dsDetailDelivery = BindDataOrderConfirmation(ls_orderNo, ls_orderNoSplit, ls_Aff, ls_Supplier)
-                If dsDetailDelivery.Tables(0).Rows.Count > 0 Then
-                    Dim k As Long
-                    Dim dsAffiliate As New DataSet
-                    dsAffiliate = Affiliate(Trim(ls_Aff))
-
-                    Dim dsSupplier As New DataSet
-                    dsSupplier = Supplier(Trim(ls_Supplier))
-
-                    Dim status As Boolean
-                    status = True
-
-                    If dsDetailDelivery.Tables(0).Rows.Count = 0 Then
-                        status = False
-                    Else
-                        status = True
-                    End If
-
-                    If status = True Then
-                        NewFileCopy = Trim(txtAttachmentDOM.Text) & "\Template Customer Order Confirmation.xlsx"
-                        ls_file = NewFileCopy
-                        ExcelBook = xlApp.Workbooks.Open(ls_file)
-                        ExcelSheet = CType(ExcelBook.Worksheets(sheetNumber), Excel.Worksheet)
-
-                        ExcelSheet.Range("A7:BA7").Value = IIf(dsDetailDelivery.Tables(0).Rows(0)("EmergencyCls") = "M", "PASI FINAL APPROVAL PO (MONTHLY)", "PASI FINAL APPROVAL PO (EMERGENCY)")
-                        ExcelSheet.Range("H1").Value = "PFAM"
-                        ExcelSheet.Range("H2").Value = receiptEmail.Trim
-                        ExcelSheet.Range("H3").Value = ls_Consignee.Trim
-                        ExcelSheet.Range("H4").Value = ls_delivery.Trim
-                        ExcelSheet.Range("H5").Value = ls_Supplier.Trim
-
-                        ExcelSheet.Range("G11:K11").Value = dsDetailDelivery.Tables(0).Rows(0)("period")
-                        ExcelSheet.Range("G13:K13").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("OrderNo"))
-                        ExcelSheet.Range("G15:K15").Value = Trim(IIf(dsDetailDelivery.Tables(0).Rows(0)("OrderNo") <> dsDetailDelivery.Tables(0).Rows(0)("poNO"), dsDetailDelivery.Tables(0).Rows(0)("PoNo"), ""))
-                        ExcelSheet.Range("G17:K17").Value = IIf(dsDetailDelivery.Tables(0).Rows(0)("ShipBy") = "B", "BOAT", "AIR")
-
-                        ExcelSheet.Range("R11:V11").Value = dsDetailDelivery.Tables(0).Rows(0)("ETDVENDOR")
-                        ExcelSheet.Range("R13:V13").Value = dsDetailDelivery.Tables(0).Rows(0)("ETDPORT")
-                        ExcelSheet.Range("R15:V15").Value = dsDetailDelivery.Tables(0).Rows(0)("ETAPORT")
-                        ExcelSheet.Range("R17:V17").Value = dsDetailDelivery.Tables(0).Rows(0)("ETAFACTORY")
-
-                        ExcelSheet.Range("G19:V19").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("AFFName"))
-                        ExcelSheet.Range("G20:V22").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("AFFAdd"))
-
-                        ExcelSheet.Range("AE11:AT11").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("SuppName"))
-                        ExcelSheet.Range("AE12:AT15").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("SuppAdd"))
-
-                        ExcelSheet.Range("AE19:AT19").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("FWDName"))
-                        ExcelSheet.Range("AE20:AT22").Value = Trim(dsDetailDelivery.Tables(0).Rows(0)("FWDAdd"))
-
-                        k = 0
-                        For j = 0 To dsDetailDelivery.Tables(0).Rows.Count - 1
-                            'For i = 0 To 3
-                            k = k
-                            Dim newKanbanNo As String = ""
-
-                            ExcelSheet.Range("B" & k + 27 & ": C" & k + 27).Merge()
-                            ExcelSheet.Range("D" & k + 27 & ": H" & k + 27).Merge()
-                            ExcelSheet.Range("i" & k + 27 & ": P" & k + 27).Merge()
-
-                            ExcelSheet.Range("Q" & k + 27 & ": R" & k + 27).Merge()
-                            ExcelSheet.Range("S" & k + 27 & ": T" & k + 27).Merge()
-                            ExcelSheet.Range("U" & k + 27 & ": X" & k + 27).Merge()
-
-                            ExcelSheet.Range("Y" & k + 27 & ": AB" & k + 27).Merge()
-                            ExcelSheet.Range("AC" & k + 27 & ": AF" & k + 27).Merge()
-                            ExcelSheet.Range("AG" & k + 27 & ": AJ" & k + 27).Merge()
-                            ExcelSheet.Range("AK" & k + 27 & ": AN" & k + 27).Merge()
-                            ExcelSheet.Range("AO" & k + 27 & ": AQ" & k + 27).Merge()
-                            ExcelSheet.Range("AR" & k + 27 & ": AT" & k + 27).Merge()
-                            ExcelSheet.Range("AU" & k + 27 & ": AW" & k + 27).Merge()
-                            ExcelSheet.Range("AX" & k + 27 & ": AZ" & k + 27).Merge()
-                            ExcelSheet.Range("BA" & k + 27 & ": BC" & k + 27).Merge()
-
-                            ExcelSheet.Range("B" & k + 27 & ": C" & k + 27).Value = k + 1
-                            ExcelSheet.Range("D" & k + 27 & ": H" & k + 27).Value = Trim(dsDetailDelivery.Tables(0).Rows(j)("Partno"))
-                            ExcelSheet.Range("i" & k + 27 & ": P" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("PartName")
-                            ExcelSheet.Range("Q" & k + 27 & ": R" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("UOM")
-                            ExcelSheet.Range("S" & k + 27 & ": T" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("QtyBox")
-                            ExcelSheet.Range("S" & k + 27 & ": T" & k + 27).NumberFormat = "#,##0"
-                            ExcelSheet.Range("U" & k + 27 & ": X" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Qty")
-                            ExcelSheet.Range("U" & k + 27 & ": X" & k + 27).NumberFormat = "#,##0"
-                            ExcelSheet.Range("Y" & k + 27 & ": AB" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("SupplierQty")
-                            ExcelSheet.Range("Y" & k + 27 & ": AB" & k + 27).NumberFormat = "#,##0"
-                            ExcelSheet.Range("AC" & k + 27 & ": AF" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("TotalBox")
-                            ExcelSheet.Range("AC" & k + 27 & ": AF" & k + 27).NumberFormat = "#,##0"
-                            ExcelSheet.Range("AG" & k + 27 & ": AJ" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("TotalNet")
-                            ExcelSheet.Range("AG" & k + 27 & ": AJ" & k + 27).NumberFormat = "#,##0.00"
-                            ExcelSheet.Range("AK" & k + 27 & ": AN" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Volume")
-                            ExcelSheet.Range("AK" & k + 27 & ": AN" & k + 27).NumberFormat = "#,##0.00"
-                            ExcelSheet.Range("AO" & k + 27 & ": AQ" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Length")
-                            ExcelSheet.Range("AO" & k + 27 & ": AQ" & k + 27).NumberFormat = "#,##0.00"
-                            ExcelSheet.Range("AR" & k + 27 & ": AT" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Width")
-                            ExcelSheet.Range("AR" & k + 27 & ": AT" & k + 27).NumberFormat = "#,##0.00"
-                            ExcelSheet.Range("AU" & k + 27 & ": AW" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Height")
-                            ExcelSheet.Range("AU" & k + 27 & ": AW" & k + 27).NumberFormat = "#,##0.00"
-                            ExcelSheet.Range("AX" & k + 27 & ": AZ" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("Gross")
-                            ExcelSheet.Range("AX" & k + 27 & ": AZ" & k + 27).NumberFormat = "#,##0.00"
-                            ExcelSheet.Range("BA" & k + 27 & ": BC" & k + 27).Value = dsDetailDelivery.Tables(0).Rows(j)("BoxPallet")
-                            ExcelSheet.Range("BA" & k + 27 & ": BC" & k + 27).NumberFormat = "#,##0"
-
-                            k = k + 1
-                        Next
-
-                        DrawAllBorders(ExcelSheet.Range("B27" & ": BC" & k + 26))
-
-                        'Save ke Local
-                        xlApp.DisplayAlerts = False
-
-                        If ls_orderNo <> ls_orderNoSplit Then
-                            ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\PASI FINAL APPROVAL-" & Trim(ls_Aff) & "-" & Trim(ls_Supplier) & "-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ").xlsx")
-                            pFilename_e = "\PASI FINAL APPROVAL-" & Trim(ls_Aff) & "-" & Trim(ls_Supplier) & "-" & Trim(ls_orderNo) & " Split (" & Trim(ls_orderNoSplit) & ").xlsx"
-                        Else
-                            ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & "\PASI FINAL APPROVAL-" & Trim(ls_Aff) & "-" & Trim(ls_Supplier) & "-" & Trim(ls_orderNo) & ".xlsx")
-                            pFilename_e = "\PASI FINAL APPROVAL-" & Trim(ls_Aff) & "-" & Trim(ls_Supplier) & "-" & Trim(ls_orderNo) & ".xlsx"
-                        End If
-
-                        xlApp.Workbooks.Close()
-                        xlApp.Quit()
-                    End If
-
-                    If pFilename_e = "" Then GoTo keluar
-                    If sendEmailtoSupllierDeliveryConfirmation("DELIVERY", pFilename_e, "", Trim(ls_orderNo), Trim(ls_delivery), Trim(ls_Aff), Trim(ls_orderNoSplit), Trim(ls_Supplier), Trim(ls_SJ)) = False Then GoTo keluar
-                End If
-                '==================================ORDER CONFIRMATION===================================
-
-                Call UpdateStatusPOExport(ls_Aff, ls_Supplier, ls_orderNo, ls_orderNoSplit)
+                    Call UpdateStatusPOExport(ls_Aff, ls_Supplier, ls_orderNo, ls_orderNoSplit)
 
 keluar:
-                xlApp.Workbooks.Close()
-                xlApp.Quit()
+                    xlApp.Workbooks.Close()
+                    xlApp.Quit()
+                End If
             Next
         Catch ex As Exception
             rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Delivery Confirmation to Supplier STOPPED, because " & Err.Description & " " & vbCrLf & _
@@ -3083,6 +3272,9 @@ keluar:
                                     ls_Startno = 0
                                 End If
                                 For x = 1 To dsData.Tables(0).Rows(i)("looping")
+                                    If ls_codeT + ls_codeB = "HC" Then
+                                        Dim a As String = "a"
+                                    End If
                                     '------ NEW LABEL ------
                                     If ls_newLabelEx = False Then
                                         LabelNo = "00000" & ls_Startno + 1
@@ -3445,6 +3637,105 @@ keluar:
             rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send DN No: " & pPono & " to Supplier STOPPED, because " & ex.Message & " " & vbCrLf & _
                             rtbProcess.Text
             sendEmailPASI_EXPORT = False
+        End Try
+    End Function
+
+    Private Function sendEmailPASI_EXPORTForwarder_Information(ByVal pSuratJalan As String, ByVal pAffiliate As String, ByVal pForwarder As String) As Boolean
+        Try
+            Dim receiptEmail As String = ""
+            Dim receiptCCEmail As String = ""
+            Dim fromEmail As String = ""
+
+            Dim dsEmail As New DataSet
+            dsEmail = EmailSendForwarder_Export(pForwarder, pAffiliate)
+            'To Supplier, CC Supplier
+            For iRow = 0 To dsEmail.Tables(0).Rows.Count - 1
+                If dsEmail.Tables(0).Rows(iRow)("flag") = "PASI" Then
+                    If fromEmail = "" Then
+                        fromEmail = dsEmail.Tables(0).Rows(iRow)("KanbanFrom")
+                    Else
+                        fromEmail = fromEmail & ";" & dsEmail.Tables(0).Rows(iRow)("KanbanFrom")
+                    End If
+                End If
+                If dsEmail.Tables(0).Rows(iRow)("flag") <> "PASI" Then
+                    If receiptEmail = "" Then
+                        receiptEmail = dsEmail.Tables(0).Rows(iRow)("KanbanTO")
+                    Else
+                        receiptEmail = receiptEmail & ";" & dsEmail.Tables(0).Rows(iRow)("KanbanTO")
+                    End If
+                End If
+                If dsEmail.Tables(0).Rows(iRow)("flag") <> "PASI" Then
+                    If receiptCCEmail = "" Then
+                        receiptCCEmail = dsEmail.Tables(0).Rows(iRow)("KanbanCC")
+                    Else
+                        receiptCCEmail = receiptCCEmail & ";" & dsEmail.Tables(0).Rows(iRow)("KanbanCC")
+                    End If
+                End If
+            Next
+            fromEmail = Replace(fromEmail, " ", "")
+            receiptEmail = Replace(receiptEmail, ",", ";")
+            receiptCCEmail = Replace(receiptCCEmail, ",", ";")
+
+            If receiptEmail = "" Then
+                rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Information Forwarder Delivery Confirmation STOPPED, because Recipient's e-mail address is not found" & vbCrLf & _
+                                rtbProcess.Text
+                sendEmailPASI_EXPORTForwarder_Information = False
+                Exit Function
+            End If
+            If fromEmail = "" Then
+                rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Information Forwarder Delivery Confirmation STOPPED, because Mailer's e-mail address is not found" & vbCrLf & _
+                                rtbProcess.Text
+                sendEmailPASI_EXPORTForwarder_Information = False
+                Exit Function
+            End If
+
+            Dim mailMessage As New Mail.MailMessage()
+            mailMessage.From = New MailAddress(fromEmail)
+            mailMessage.Subject = "Informasi Perubahan Untuk DN " & pSuratJalan
+
+            If receiptEmail <> "" Then
+                For Each recipient In receiptEmail.Split(";"c)
+                    If recipient <> "" Then
+                        Dim mailAddress As New MailAddress(recipient)
+                        mailMessage.To.Add(mailAddress)
+                    End If
+                Next
+            End If
+            If receiptCCEmail <> "" Then
+                For Each recipientCC In receiptCCEmail.Split(";"c)
+                    If recipientCC <> "" Then
+                        Dim mailAddress As New MailAddress(recipientCC)
+                        mailMessage.CC.Add(mailAddress)
+                    End If
+                Next
+            End If
+
+            GetSettingEmail_Export("Kanban")
+
+            ls_Body = clsNotification.GetNotification("34", "", , "", pSuratJalan)
+
+            mailMessage.Body = ls_Body
+
+            mailMessage.IsBodyHtml = False
+            Dim smtp As New SmtpClient
+
+            smtp.Host = smtpClient
+            smtp.UseDefaultCredentials = DefaultCredentials
+            smtp.EnableSsl = SSL
+
+            Dim myCredential As System.Net.NetworkCredential = New System.Net.NetworkCredential(Trim(usernameSMTP), Trim(PasswordSMTP))
+            smtp.Credentials = myCredential
+
+            smtp.Port = portClient
+            smtp.Send(mailMessage)
+
+            sendEmailPASI_EXPORTForwarder_Information = True
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Information Forwarder Delivery Confirmation DN No: " & pSuratJalan & " SUCCESSFULL" & vbCrLf & _
+                             rtbProcess.Text
+        Catch ex As Exception
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Information Forwarder Delivery Confirmation DN No: " & pSuratJalan & " STOPPED, because " & ex.Message & " " & vbCrLf & _
+                            rtbProcess.Text
+            sendEmailPASI_EXPORTForwarder_Information = False
         End Try
     End Function
 
@@ -8221,12 +8512,244 @@ keluar:
         End Try
     End Sub
 
+    Private Sub up_MovingGoodExport()
+        Dim SJNo = "", SJNoOld = "", AffID = "", SuppID = "", FwdID = "", FwdID_Old = "", PoNo = "", OrderNo = ""
+        Dim receiptCCEmail As String = ""
+        Dim receiptEmail As String = ""
+        Dim replyEmailExcel As String = ""
+
+        Dim receiptCCEmail_Split As String = ""
+        Dim receiptEmail_Split As String = ""
+
+        Dim fileNameTemplate As String = Trim(txtAttachmentDOM.Text) & "\Template Moving Delivery Split GR.xlsx"
+        Dim fileName As String = ""
+        Dim ls_sql As String = ""
+
+        Dim ds As New DataSet
+        Dim dsEmail As New DataSet
+        Dim dsAffiliate As New DataSet
+        Dim dsSupplier As New DataSet
+
+        ls_sql = "Select Top 1 TRIM(SuratJalanNo) SuratJalan, TRIM(AffiliateID) AffID, TRIM(SupplierID) SuppID, TRIM(PONo) PoNo, TRIM(OrderNo) OrderNo, SplitDelivery SJDelivery, SJDeliveryOri From DOSupplier_Master_Export where SplitCls = '1' order by UpdateDate "
+        ds = cls.uf_GetDataSet(ls_sql)
+
+        If ds.Tables(0).Rows.Count = 0 Then Exit Sub
+
+        Dim fi As New FileInfo(fileNameTemplate)
+
+        If Not fi.Exists Then
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Moving Good to Forwarder STOPPED, because File Excel isn't Found " & vbCrLf & _
+                            rtbProcess.Text
+            Exit Sub
+        End If
+
+        fileName = txtSaveAsDOM.Text & "\Template Moving Delivery Split GR " & Format(Now, "yyyyMMddHHmmss") & ".xlsx"
+        System.IO.File.Copy(fileNameTemplate, fileName)
+
+        SJNo = ds.Tables(0).Rows(0)("SuratJalan") : SJNoOld = ds.Tables(0).Rows(0)("SJDelivery")
+        AffID = ds.Tables(0).Rows(0)("AffID") : SuppID = ds.Tables(0).Rows(0)("SuppID")
+        PoNo = ds.Tables(0).Rows(0)("PoNo") : OrderNo = ds.Tables(0).Rows(0)("OrderNo")
+
+        'Get Email Forwarder yang Baru
+        ls_sql = "select Top 1 ForwarderID from ReceiveForwarder_Master where AffiliateID = '" & AffID & "' and SupplierID = '" & SuppID & "' and PONo = '" & PoNo & "' and OrderNo = '" & OrderNo & "'"
+        ds = cls.uf_GetDataSet(ls_sql)
+
+        If ds.Tables(0).Rows.Count = 0 Then
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Moving Good to Forwarder STOPPED, because Data Email Forwarder for SJ : '" & SJNo & "' and Supp '" & SuppID & "' and Order '" & OrderNo & "' isn't Found " & vbCrLf & rtbProcess.Text
+            Exit Sub
+        End If
+
+        FwdID = ds.Tables(0).Rows(0)("ForwarderID").ToString ' Pasti ke 0
+
+        'Get Data Detail
+        ls_sql = "Exec sp_DeliverySplitBatch_Select_Detail_Moving '" & AffID & "', '" & SuppID & "', '" & SJNo & "', '" & SJNoOld & "', '" & PoNo & "', '" & OrderNo & "' "
+        ds = cls.uf_GetDataSet(ls_sql)
+
+        If ds.Tables(0).Rows.Count = 0 Or ds.Tables(1).Rows.Count = 0 Then ' STOP Karena ga ada Data nya
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Moving Good to Forwarder STOPPED, because Data for SJ : '" & SJNo & "' and Supp '" & SuppID & "' and Order '" & OrderNo & "' isn't Found " & vbCrLf & rtbProcess.Text
+            Exit Sub
+        End If
+
+        FwdID_Old = ds.Tables(0).Rows(0)("OldForwarder").ToString ' Pasti ke 0
+
+        dsEmail = EmailToEmailCCMovingGR_Export(FwdID, FwdID_Old)
+        dsAffiliate = Affiliate(Trim(AffID))
+        dsSupplier = Supplier(Trim(SuppID))
+
+        For i = 0 To dsEmail.Tables(0).Rows.Count - 1
+            If dsEmail.Tables(0).Rows(i)("Flag") = "PASI" Then
+                replyEmailExcel = dsEmail.Tables(0).Rows(i)("ForwarderTO")
+            ElseIf dsEmail.Tables(0).Rows(i)("Flag") = "FWD" Then
+                receiptEmail_Split = dsEmail.Tables(0).Rows(i)("ForwarderTO")
+                receiptCCEmail_Split = dsEmail.Tables(0).Rows(i)("ForwarderCC")
+            ElseIf dsEmail.Tables(0).Rows(i)("Flag") = "FWDOld" Then
+                receiptEmail = dsEmail.Tables(0).Rows(i)("ForwarderTO")
+                receiptCCEmail = dsEmail.Tables(0).Rows(i)("ForwarderCC")
+            End If
+        Next
+
+        If dsAffiliate.Tables(0).Rows.Count = 0 Then ' STOP Karena ga ada di Master Affiliate
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Moving Good to Forwarder STOPPED, because Data for Affiliate : '" & AffID & "' isn't Found " & vbCrLf & rtbProcess.Text
+            Exit Sub
+        End If
+
+        If dsSupplier.Tables(0).Rows.Count = 0 Then ' STOP Karena ga ada di Master Supplier
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Moving Good to Forwarder STOPPED, because Data for Supplier : '" & SuppID & "' isn't Found " & vbCrLf & rtbProcess.Text
+            Exit Sub
+        End If
+
+        Dim ExcelBook As Excel.Workbook
+        Dim ExcelSheet As Excel.Worksheet
+        Dim xlApp = New Excel.Application
+
+        Try
+            ExcelBook = xlApp.Workbooks.Open(fileName)
+            ExcelSheet = CType(ExcelBook.Worksheets(1), Excel.Worksheet)
+            'xlApp.Visible = True
+
+            Dim k = 0
+            For i = 0 To ds.Tables(0).Rows.Count - 1
+                ExcelSheet.Range("A" & k + 5 & ": P" & k + 5).RowHeight = 20
+
+                ExcelSheet.Range("A" & k + 5).Value = ds.Tables(0).Rows(i)("No").ToString 'No
+                ExcelSheet.Range("B" & k + 5).Value = ds.Tables(0).Rows(i)("Affiliate").ToString 'Affiliate ID
+                ExcelSheet.Range("C" & k + 5).Value = ds.Tables(0).Rows(i)("Supplier").ToString 'Supplier ID
+                ExcelSheet.Range("D" & k + 5).Value = ds.Tables(0).Rows(i)("Forwarder").ToString 'Forwarder ID
+                ExcelSheet.Range("E" & k + 5).Value = ds.Tables(0).Rows(i)("PoNo").ToString 'Po No
+                ExcelSheet.Range("F" & k + 5).Value = ds.Tables(0).Rows(i)("OrderNo").ToString 'Order No
+                ExcelSheet.Range("G" & k + 5).Value = ds.Tables(0).Rows(i)("SuratJalan").ToString 'DN No
+                ExcelSheet.Range("H" & k + 5).Value = ds.Tables(0).Rows(i)("PartNo").ToString 'Part No
+                ExcelSheet.Range("I" & k + 5).Value = ds.Tables(0).Rows(i)("BoxNo").ToString 'Box No
+                ExcelSheet.Range("J" & k + 5).Value = ds.Tables(0).Rows(i)("Consignee").ToString 'Consignee Code
+                ExcelSheet.Range("K" & k + 5).Value = ds.Tables(0).Rows(i)("ReceiveDate").ToString 'Receive Date
+                ExcelSheet.Range("L" & k + 5).Value = ds.Tables(0).Rows(i)("UOM").ToString 'UOM
+                ExcelSheet.Range("M" & k + 5).Value = CDbl(ds.Tables(0).Rows(i)("MOQ").ToString) 'Qty/Box
+                ExcelSheet.Range("M" & k + 5).NumberFormat = "#,##0"
+
+                ExcelSheet.Range("N" & k + 5).Value = ds.Tables(0).Rows(i)("StatusGR").ToString 'Status GR
+                ExcelSheet.Range("O" & k + 5).Value = ds.Tables(0).Rows(i)("PlanUpdate").ToString 'Plan Update Date
+                ExcelSheet.Range("P" & k + 5).Value = ds.Tables(0).Rows(i)("Remarks").ToString 'Remarks
+
+                ExcelSheet.Range("A" & k + 5 & ": P" & k + 5).HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter
+                ExcelSheet.Range("A" & k + 5 & ": P" & k + 5).VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter
+
+
+                clsGeneral.DrawAllBorders(ExcelSheet.Range("A" & k + 5 & ": P" & k + 5))
+                ExcelSheet.Range("A" & k + 5 & ": P" & k + 5).Borders(Microsoft.Office.Interop.Excel.XlBordersIndex.xlEdgeTop).LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous
+                ExcelSheet.Range("A" & k + 5 & ": P" & k + 5).Borders(Microsoft.Office.Interop.Excel.XlBordersIndex.xlEdgeBottom).LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous
+
+                If ds.Tables(0).Rows(i)("Status").ToString() = "1" Then
+                    ExcelSheet.Range("A" & k + 5 & ": P" & k + 5).Interior.Color = Color.Yellow
+                End If
+
+                k += 1
+            Next
+
+            xlApp.DisplayAlerts = False
+
+            Dim pFilename As String = ""
+            pFilename = txtSaveAsDOM.Text & "\Moving Delivery Split GR " & PoNo & " (" & OrderNo & ").xlsx"
+            ExcelBook.SaveAs(pFilename)
+            ExcelBook.Close()
+            xlApp.Workbooks.Close()
+            xlApp.Quit()
+
+            My.Computer.FileSystem.DeleteFile(fileName)
+
+            '<!-- Process KIRIM EXCEL KE FORWARDER BARU YANG DI SPLIT AJAH --!>
+            fileNameTemplate = Trim(txtAttachmentDOM.Text) & "\Template Moving Delivery Split GR Forwarder Baru.xlsx"
+            fileName = txtSaveAsDOM.Text & "\Template Moving Delivery Split GR Forwarder Baru " & Format(Now, "yyyyMMddHHmmss") & ".xlsx"
+            System.IO.File.Copy(fileNameTemplate, fileName)
+
+            ExcelBook = xlApp.Workbooks.Open(fileName)
+            ExcelSheet = CType(ExcelBook.Worksheets(1), Excel.Worksheet)
+
+            k = 0
+            For i = 0 To ds.Tables(1).Rows.Count - 1
+                ExcelSheet.Range("A" & k + 5 & ": L" & k + 5).RowHeight = 20
+
+                ExcelSheet.Range("A" & k + 5).Value = ds.Tables(1).Rows(i)("No").ToString 'No
+                ExcelSheet.Range("B" & k + 5).Value = ds.Tables(1).Rows(i)("Affiliate").ToString 'Affiliate ID
+                ExcelSheet.Range("C" & k + 5).Value = ds.Tables(1).Rows(i)("Supplier").ToString 'Supplier ID
+                ExcelSheet.Range("D" & k + 5).Value = ds.Tables(1).Rows(i)("Forwarder").ToString 'Forwarder ID
+                ExcelSheet.Range("E" & k + 5).Value = ds.Tables(1).Rows(i)("PoNo").ToString 'Po No
+                ExcelSheet.Range("F" & k + 5).Value = ds.Tables(1).Rows(i)("OrderNo").ToString 'Order No
+                ExcelSheet.Range("G" & k + 5).Value = ds.Tables(1).Rows(i)("SuratJalan").ToString 'DN No
+                ExcelSheet.Range("H" & k + 5).Value = ds.Tables(1).Rows(i)("PartNo").ToString 'Part No
+                ExcelSheet.Range("I" & k + 5).Value = ds.Tables(1).Rows(i)("BoxNo").ToString 'Box No
+                ExcelSheet.Range("J" & k + 5).Value = ds.Tables(1).Rows(i)("Consignee").ToString 'Consignee Code
+                ExcelSheet.Range("K" & k + 5).Value = ds.Tables(1).Rows(i)("UOM").ToString 'UOM
+                ExcelSheet.Range("L" & k + 5).Value = CDbl(ds.Tables(1).Rows(i)("MOQ").ToString) 'Qty/Box
+                ExcelSheet.Range("L" & k + 5).NumberFormat = "#,##0"
+
+                ExcelSheet.Range("A" & k + 5 & ": L" & k + 5).HorizontalAlignment = Microsoft.Office.Interop.Excel.XlHAlign.xlHAlignCenter
+                ExcelSheet.Range("A" & k + 5 & ": L" & k + 5).VerticalAlignment = Microsoft.Office.Interop.Excel.XlVAlign.xlVAlignCenter
+
+                clsGeneral.DrawAllBorders(ExcelSheet.Range("A" & k + 5 & ": L" & k + 5))
+                ExcelSheet.Range("A" & k + 5 & ": L" & k + 5).Borders(Microsoft.Office.Interop.Excel.XlBordersIndex.xlEdgeTop).LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous
+                ExcelSheet.Range("A" & k + 5 & ": L" & k + 5).Borders(Microsoft.Office.Interop.Excel.XlBordersIndex.xlEdgeBottom).LineStyle = Microsoft.Office.Interop.Excel.XlLineStyle.xlContinuous
+
+                k += 1
+            Next
+
+            xlApp.DisplayAlerts = False
+
+            Dim pFilename2 As String = ""
+            pFilename2 = txtSaveAsDOM.Text & "\Delivery Split GR " & PoNo & " (" & OrderNo & ").xlsx"
+            ExcelBook.SaveAs(pFilename2)
+            ExcelBook.Close()
+            xlApp.Workbooks.Close()
+            xlApp.Quit()
+
+            My.Computer.FileSystem.DeleteFile(fileName)
+
+            'Kirim Excel ke Forwarder Baru
+            If sendEmailMovingGRFWDSplit_EXPORT(pFilename2, replyEmailExcel, receiptEmail_Split, receiptCCEmail_Split, SJNo) = False Then Exit Sub
+
+            'Kirim Excel ke Forwarder Lama
+            If sendEmailMovingGR_EXPORT(pFilename, replyEmailExcel, receiptEmail, receiptCCEmail, SJNoOld, SJNo) = False Then Exit Sub
+
+            Call UpdateStatusDOSupplierMovingGRExport(SJNo, AffID, SuppID, PoNo, OrderNo)
+        Catch ex As Exception
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Moving Good to Forwarder STOPPED, because " & Err.Description & " " & vbCrLf & _
+                                    rtbProcess.Text
+            xlApp.Workbooks.Close()
+            xlApp.Quit()
+        Finally
+            If Not xlApp Is Nothing Then
+                NAR(ExcelSheet)
+                xlApp.Workbooks.Close()
+                NAR(ExcelBook)
+                NAR(ExcelSheet)
+                xlApp.Quit()
+                NAR(xlApp)
+                GC.Collect()
+            End If
+        End Try
+    End Sub
+
     Private Function EmailToEmailCCInvoice_Export(ByVal pSupplierID As String) As DataSet
         Dim ls_SQL As String = ""
         'MdlConn.ReadConnection()
         ls_SQL = " select 'PASI' as FLAG , InvoiceCC = TRIM(InvoiceCC), InvoiceTO = TRIM(InvoiceTO) from MS_EmailPasi_Export " & vbCrLf & _
                  "UNION ALL " & vbCrLf & _
                  " select 'SUPP' as FLAG , InvoiceCC = TRIM(InvoiceCC), InvoiceTO = TRIM(InvoiceTO) from MS_EmailSupplier_Export where supplierID = '" & pSupplierID & "' "
+        Dim ds As New DataSet
+        ds = cls.uf_GetDataSet(ls_SQL)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            Return ds
+        End If
+    End Function
+
+    Private Function EmailToEmailCCMovingGR_Export(ByVal pForwarderID As String, ByVal pForwarderIDOld As String) As DataSet
+        Dim ls_SQL As String = ""
+        'MdlConn.ReadConnection()
+        ls_SQL = " select 'PASI' as FLAG , ForwarderCC = TRIM(GoodReceiveCC), ForwarderTO = TRIM(GoodReceiveTO) from MS_EmailPasi_Export " & vbCrLf & _
+                 "UNION ALL " & vbCrLf & _
+                 " select 'FWDOld' as FLAG , ForwarderCC = TRIM(ForwarderReceivingTO), ForwarderTO = TRIM(ForwarderReceivingTO) from MS_EmailForwarder where ForwarderID = '" & pForwarderIDOld & "' " & vbCrLf & _
+                 "UNION ALL " & vbCrLf & _
+                 " select 'FWD' as FLAG , ForwarderCC = TRIM(ForwarderReceivingTO), ForwarderTO = TRIM(ForwarderReceivingTO) from MS_EmailForwarder where ForwarderID = '" & pForwarderID & "' "
         Dim ds As New DataSet
         ds = cls.uf_GetDataSet(ls_SQL)
 
@@ -8300,6 +8823,140 @@ keluar:
             Using sqlConn As New SqlConnection(cfg.ConnectionString)
                 sqlConn.Open()
                 ls_SQL = " update ReceiveForwarder_Master set ExcelCls = '2' " & vbCrLf & _
+                         " WHERE AffiliateID = '" & pAffiliateID & "' " & vbCrLf & _
+                         " AND SupplierID = '" & pSupp & "' " & vbCrLf & _
+                         " AND SuratJalanNo = '" & pSJNo & "'" & vbCrLf & _
+                         " AND OrderNo = '" & pOrderNo & "'" & vbCrLf & _
+                         " AND PoNo = '" & pPoNo & "'"
+                Dim sqlComm As New SqlCommand(ls_SQL, sqlConn)
+                sqlComm.ExecuteNonQuery()
+                sqlComm.Dispose()
+                sqlConn.Close()
+            End Using
+
+        Catch ex As Exception
+            txtMsg.Text = ex.Message
+        End Try
+    End Sub
+
+    Private Function sendEmailMovingGR_EXPORT(ByVal pFilename As String, ByVal pEmailFrom As String, ByVal pEmailTo As String, ByVal pEmailCC As String, ByVal pSjNo As String, ByVal pSjNoSplit As String) As Boolean 'Link Affiliate Order Entry
+        Try
+            pEmailFrom = Replace(pEmailFrom, " ", "")
+            pEmailTo = Replace(pEmailTo, " ", "")
+            pEmailCC = Replace(pEmailCC, " ", "")
+
+            Dim mailMessage As New Mail.MailMessage()
+            mailMessage.From = New MailAddress(pEmailFrom)
+            mailMessage.Subject = "Split Delivery Export SJ No. " & pSjNo
+
+            If pEmailTo <> "" Then
+                For Each recipient In pEmailTo.Split(";"c)
+                    If recipient <> "" Then
+                        Dim mailAddress As New MailAddress(recipient)
+                        mailMessage.To.Add(mailAddress)
+                    End If
+                Next
+            End If
+            If pEmailCC <> "" Then
+                For Each recipientCC In pEmailCC.Split(";"c)
+                    If recipientCC <> "" Then
+                        Dim mailAddress As New MailAddress(recipientCC)
+                        mailMessage.CC.Add(mailAddress)
+                    End If
+                Next
+            End If
+
+            GetSettingEmail_Export("Moving Good Receiving Export")
+
+            ls_Body = clsNotification.GetNotification("55", "", "", "", pSjNo, "", "")
+            mailMessage.Body = ls_Body
+
+            mailMessage.Attachments.Add(New Attachment(pFilename))
+
+            mailMessage.IsBodyHtml = False
+            Dim smtp As New SmtpClient
+            smtp.Host = smtpClient
+            smtp.UseDefaultCredentials = DefaultCredentials
+            smtp.EnableSsl = SSL
+
+            Dim myCredential As System.Net.NetworkCredential = New System.Net.NetworkCredential(Trim(usernameSMTP), Trim(PasswordSMTP))
+            smtp.Credentials = myCredential
+
+            smtp.Port = portClient
+            smtp.Send(mailMessage)
+            sendEmailMovingGR_EXPORT = True
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Moving Good to Forwarder SJ No: " & pSjNoSplit & " to Forwarder SUCCESSFULL" & vbCrLf & _
+                             rtbProcess.Text
+        Catch ex As Exception
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Moving Good to Forwarder SJ No: " & pSjNoSplit & " to Forwarder STOPPED, because " & ex.Message & " " & vbCrLf & _
+                            rtbProcess.Text
+            sendEmailMovingGR_EXPORT = False
+        End Try
+    End Function
+
+    Private Function sendEmailMovingGRFWDSplit_EXPORT(ByVal pFilename As String, ByVal pEmailFrom As String, ByVal pEmailTo As String, ByVal pEmailCC As String, ByVal pSjNo As String) As Boolean
+        Try
+            pEmailFrom = Replace(pEmailFrom, " ", "")
+            pEmailTo = Replace(pEmailTo, " ", "")
+            pEmailCC = Replace(pEmailCC, " ", "")
+
+            Dim mailMessage As New Mail.MailMessage()
+            mailMessage.From = New MailAddress(pEmailFrom)
+            mailMessage.Subject = "Delivery Export SJ No. " & pSjNo
+
+            If pEmailTo <> "" Then
+                For Each recipient In pEmailTo.Split(";"c)
+                    If recipient <> "" Then
+                        Dim mailAddress As New MailAddress(recipient)
+                        mailMessage.To.Add(mailAddress)
+                    End If
+                Next
+            End If
+            If pEmailCC <> "" Then
+                For Each recipientCC In pEmailCC.Split(";"c)
+                    If recipientCC <> "" Then
+                        Dim mailAddress As New MailAddress(recipientCC)
+                        mailMessage.CC.Add(mailAddress)
+                    End If
+                Next
+            End If
+
+            GetSettingEmail_Export("Moving Good Receiving Export")
+
+            ls_Body = clsNotification.GetNotification("56", "", "", "", pSjNo, "", "")
+            mailMessage.Body = ls_Body
+
+            mailMessage.Attachments.Add(New Attachment(pFilename))
+
+            mailMessage.IsBodyHtml = False
+            Dim smtp As New SmtpClient
+            smtp.Host = smtpClient
+            smtp.UseDefaultCredentials = DefaultCredentials
+            smtp.EnableSsl = SSL
+
+            Dim myCredential As System.Net.NetworkCredential = New System.Net.NetworkCredential(Trim(usernameSMTP), Trim(PasswordSMTP))
+            smtp.Credentials = myCredential
+
+            smtp.Port = portClient
+            smtp.Send(mailMessage)
+            sendEmailMovingGRFWDSplit_EXPORT = True
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Moving Good to Forwarder New SJ No: " & pSjNo & " to Forwarder SUCCESSFULL" & vbCrLf & _
+                             rtbProcess.Text
+        Catch ex As Exception
+            rtbProcess.Text = Format(Now, "yyyy-MM-dd HH:mm:ss") & " Process Send Moving Good to Forwarder New SJ No: " & pSjNo & " to Forwarder STOPPED, because " & ex.Message & " " & vbCrLf & _
+                            rtbProcess.Text
+            sendEmailMovingGRFWDSplit_EXPORT = False
+        End Try
+    End Function
+
+    Private Sub UpdateStatusDOSupplierMovingGRExport(ByVal pSJNo As String, ByVal pAffiliateID As String, ByVal pSupp As String, ByVal pPoNo As String, ByVal pOrderNo As String)
+        Dim ls_SQL As String = ""
+
+        Try
+            'MdlConn.ReadConnection()
+            Using sqlConn As New SqlConnection(cfg.ConnectionString)
+                sqlConn.Open()
+                ls_SQL = " update DOSupplier_Master_Export set SplitCls = '2' " & vbCrLf & _
                          " WHERE AffiliateID = '" & pAffiliateID & "' " & vbCrLf & _
                          " AND SupplierID = '" & pSupp & "' " & vbCrLf & _
                          " AND SuratJalanNo = '" & pSJNo & "'" & vbCrLf & _

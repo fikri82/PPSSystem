@@ -1749,10 +1749,10 @@ Public Class clsTmpDB
                   " DefectRecQty = DefectRecQty + " & Trim(pTmp.DefectRecQty) & " " & vbCrLf & _
                   " WHERE SuratJalanNo = '" & Trim(pTmp.SuratJalanNo) & "' AND SupplierID = '" & Trim(pTmp.SupplierID) & "' AND AffiliateID = '" & Trim(pTmp.AffiliateID) & "' AND PONo = '" & Trim(pTmp.PONo) & "' " & vbCrLf & _
                   " AND OrderNo = '" & Trim(pTmp.OrderNo) & "' AND PartNo = '" & Trim(pTmp.PartNo) & "' "
-            sql = sql + " UPDATE dbo.receiveForwarder_Detail " & vbCrLf & _
-                  " SET OrderNo = '" & Trim(pTmp.OrderNo) & "'" & vbCrLf & _
-                  " WHERE SuratJalanNo = '" & Trim(pTmp.SuratJalanNo) & "' AND SupplierID = '" & Trim(pTmp.SupplierID) & "' AND AffiliateID = '" & Trim(pTmp.AffiliateID) & "' AND PONo = '" & Trim(pTmp.PONo) & "' " & vbCrLf & _
-                  " AND OrderNo = '" & Trim(pTmp.PONo) & "' AND PartNo = '" & Trim(pTmp.PartNo) & "' "
+            'sql = sql + " UPDATE dbo.receiveForwarder_Detail " & vbCrLf & _
+            '      " SET OrderNo = '" & Trim(pTmp.OrderNo) & "'" & vbCrLf & _
+            '      " WHERE SuratJalanNo = '" & Trim(pTmp.SuratJalanNo) & "' AND SupplierID = '" & Trim(pTmp.SupplierID) & "' AND AffiliateID = '" & Trim(pTmp.AffiliateID) & "' AND PONo = '" & Trim(pTmp.PONo) & "' " & vbCrLf & _
+            '      " AND OrderNo = '" & Trim(pTmp.PONo) & "' AND PartNo = '" & Trim(pTmp.PartNo) & "' "
             SqlCom.CommandText = sql
 
             Dim i As Integer = SqlCom.ExecuteNonQuery
@@ -1808,16 +1808,16 @@ Public Class clsTmpDB
                       " AND OrderNo = '" & Trim(pTmp.OrderNo) & "' AND PartNo = '" & Trim(pTmp.PartNo) & "' --and statusDefect = '" & Trim(xstatus) & "' " & vbCrLf & _
                       " AND Label1 = '" & Trim(L1) & "'" & vbCrLf & _
                       " AND Label2 = '" & Trim(L2) & "'" & vbCrLf
-                sql = sql + " UPDATE dbo.receiveForwarder_DetailBox " & vbCrLf & _
-                      " SET SuratJalanNo = '" & Trim(pTmp.SuratJalanNo) & "', label1 = '" & Trim(L1) & "', " & vbCrLf & _
-                      " Label2 = '" & Trim(L2) & "', " & vbCrLf & _
-                      " StatusDefect = '" & Trim(xstatus) & "', " & vbCrLf & _
-                      " Box = " & totBox & ", " & vbCrLf & _
-                      " OrderNo = '" & Trim(pTmp.OrderNo) & "'" & vbCrLf & _
-                      " WHERE SupplierID = '" & Trim(pTmp.SupplierID) & "' AND AffiliateID = '" & Trim(pTmp.AffiliateID) & "' AND PONo = '" & Trim(pTmp.PONo) & "' " & vbCrLf & _
-                      " AND OrderNo = '" & Trim(pTmp.OrderNo) & "' AND PartNo = '" & Trim(pTmp.PartNo) & "' --and statusDefect = '" & Trim(xstatus) & "' " & vbCrLf & _
-                      " AND Label1 = '" & Trim(L1) & "'" & vbCrLf & _
-                      " AND Label2 = '" & Trim(L2) & "'" & vbCrLf
+                'sql = sql + " UPDATE dbo.receiveForwarder_DetailBox " & vbCrLf & _
+                '      " SET SuratJalanNo = '" & Trim(pTmp.SuratJalanNo) & "', label1 = '" & Trim(L1) & "', " & vbCrLf & _
+                '      " Label2 = '" & Trim(L2) & "', " & vbCrLf & _
+                '      " StatusDefect = '" & Trim(xstatus) & "', " & vbCrLf & _
+                '      " Box = " & totBox & ", " & vbCrLf & _
+                '      " OrderNo = '" & Trim(pTmp.OrderNo) & "'" & vbCrLf & _
+                '      " WHERE SupplierID = '" & Trim(pTmp.SupplierID) & "' AND AffiliateID = '" & Trim(pTmp.AffiliateID) & "' AND PONo = '" & Trim(pTmp.PONo) & "' " & vbCrLf & _
+                '      " AND OrderNo = '" & Trim(pTmp.OrderNo) & "' AND PartNo = '" & Trim(pTmp.PartNo) & "' --and statusDefect = '" & Trim(xstatus) & "' " & vbCrLf & _
+                '      " AND Label1 = '" & Trim(L1) & "'" & vbCrLf & _
+                '      " AND Label2 = '" & Trim(L2) & "'" & vbCrLf
                 sqlCom.CommandText = sql
 
                 Dim i As Integer = sqlCom.ExecuteNonQuery

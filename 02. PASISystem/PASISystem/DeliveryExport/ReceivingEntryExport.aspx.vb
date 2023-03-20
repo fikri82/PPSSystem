@@ -260,6 +260,7 @@ Public Class ReceivingEntryExport
                           "                                                     AND RM.AffiliateID = RD.AffiliateID   " & vbCrLf & _
                           "                                                     AND RM.SupplierID = RD.SupplierID   " & vbCrLf & _
                           "                                                     AND RM.PONO = RD.PONO   " & vbCrLf & _
+						  "														AND RM.OrderNo = RD.OrderNo 	   " & vbCrLf & _
                           "           LEFT JOIN po_detail_Export POD ON POD.PONO = RM.PONO   " & vbCrLf
 
         ls_sql = ls_sql + "                                             AND POD.AffiliateID = RM.AffiliateID   " & vbCrLf & _
@@ -670,6 +671,7 @@ Public Class ReceivingEntryExport
                               "                                                                AND RM.AffiliateID = RD.AffiliateID  " & vbCrLf & _
                               "                                                                AND RM.SupplierID = RD.SupplierID  " & vbCrLf & _
                               "                                                                AND RM.PONO = RD.PONO  " & vbCrLf & _
+							  "																   AND RM.OrderNo = RD.OrderNo 	   " & vbCrLf & _
                               "                          LEFT JOIN po_detail_Export POD ON POD.PONO = RM.PONO  " & vbCrLf
 
             ls_sql = ls_sql + "                                                            AND POD.AffiliateID = RM.AffiliateID " & vbCrLf & _

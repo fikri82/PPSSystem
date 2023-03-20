@@ -827,7 +827,7 @@ Public Class POExportEntrySplit
                                         ls_SQL = ls_SQL + " UPDATE PrintLabelExport SET OrderNo = '" & Trim(ls_OrderNo) & "' " & vbCrLf & _
                                                       " WHERE SupplierID + AffiliateID + OrderNo + LabelNo + PartNo in ( " & vbCrLf & _
                                                       " SELECT TOP " & ls_TOP & " SupplierID + AffiliateID + OrderNo + LabelNo + PartNo from PrintLabelExport " & vbCrLf & _
-                                                      " WHERE PONo = '" & txtpono.Text & "' AND SupplierID = '" & Trim(ls_Supplier) & "' AND PartNo = '" & Trim(ls_PartNo) & "' " & vbCrLf & _
+                                                      " WHERE PONo = '" & txtpono.Text & "' AND SupplierID = '" & Trim(ls_Supplier) & "' AND PartNo = '" & Trim(ls_PartNo) & "' AND OrderNo = '" & Trim(ls_SplitReffPONo) & "' " & vbCrLf & _
                                                       " ORDER BY LabelNo DESC) " & vbCrLf & _
                                                       "  " & vbCrLf
 

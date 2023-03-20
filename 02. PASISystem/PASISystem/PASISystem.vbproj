@@ -485,6 +485,7 @@
     </Compile>
     <Compile Include="Class\clsDeliveryExportDetail.vb" />
     <Compile Include="Class\clsDeliveryExportHeader.vb" />
+    <Compile Include="Class\clsDeliverySplitExport.vb" />
     <Compile Include="Class\clsDESEncryption.vb" />
     <Compile Include="Class\clsGlobal.vb">
       <SubType>ASPXCodeBehind</SubType>

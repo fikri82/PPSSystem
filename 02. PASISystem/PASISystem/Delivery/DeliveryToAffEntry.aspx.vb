@@ -74,12 +74,11 @@ Public Class DeliveryToAffEntry
 
                 Session("MenuDesc") = "DELIVERY TO AFFILIATE ENTRY"
 
-                'If Session("POList") <> "" Then
-                '    param = Session("POList").ToString()
-                'ElseIf Session("TampungDelivery") <> "" Then
-                '    param = Session("TampungDelivery").ToString()
-
-                If Session("viewDelivery") = "Back" Then
+                If Session("POList") <> "" Then
+                    param = Session("POList").ToString()
+                    'ElseIf Session("TampungDelivery") <> "" Then
+                    '    param = Session("TampungDelivery").ToString()
+                ElseIf Session("viewDelivery") = "Back" Then
                     If Session("POList") <> "" Then
                         param = Session("POList").ToString()
                     ElseIf Session("TampungDelivery") <> "" Then
@@ -177,6 +176,8 @@ Public Class DeliveryToAffEntry
                         Session("pFilter") = pFilter
                         Session.Remove("POList")
                         Session.Remove("viewDelivery")
+                    Else
+                        Session.Remove("POList")
                     End If
                 End If
                 btnsubmenu.Text = "BACK"
@@ -188,15 +189,15 @@ Public Class DeliveryToAffEntry
                     'txttotalbox.Text = uf_SumQty(pPO, pKanban, pSuratJalan, pRSJ, pSuppSuratJalan, pFilter, pstatusInsert)
                 End If
             End If
-            '===============================================================================
+                '===============================================================================
 
-            If (Not IsPostBack) AndAlso (Not IsCallback) Then
-                lblerrmessage.Text = ""
-                'Else
-                'CheckDataPL(txtsuratjalanno.Text)
-            End If
+                If (Not IsPostBack) AndAlso (Not IsCallback) Then
+                    lblerrmessage.Text = ""
+                    'Else
+                    'CheckDataPL(txtsuratjalanno.Text)
+                End If
 
-            If ls_AllowDelete = False Then btndelete.Enabled = False
+                If ls_AllowDelete = False Then btndelete.Enabled = False
 
         Catch ex As Exception
             Call clsMsg.DisplayMessage(lblerrmessage, Err.Number.ToString, clsMessage.MsgType.ErrorMessageFromVS, ex.Message.ToString())

@@ -30,7 +30,37 @@
     </style>
 </asp:Content>
 <asp:Content ID="Content2" ContentPlaceHolderID="Content" runat="server">
-     
+    <script type="text/javascript">
+        function OnInit(s, e) {
+            AdjustSizeGrid();
+        }
+        function OnControlsInitializedGrid(s, e) {
+            ASPxClientUtils.AttachEventToElement(window, "resize", function (evt) {
+                AdjustSizeGrid();
+            });
+        }
+        function AdjustSizeGrid() {
+
+            var myWidth = 0, myHeight = 0;
+            if (typeof (window.innerWidth) == 'number') {
+                //Non-IE
+                myWidth = window.innerWidth;
+                myHeight = window.innerHeight;
+            } else if (document.documentElement && (document.documentElement.clientWidth || document.documentElement.clientHeight)) {
+                //IE 6+ in 'standards compliant mode'
+                myWidth = document.documentElement.clientWidth;
+                myHeight = document.documentElement.clientHeight;
+            } else if (document.body && (document.body.clientWidth || document.body.clientHeight)) {
+                //IE 4 compatible
+                myWidth = document.body.clientWidth;
+                myHeight = document.body.clientHeight;
+            }
+
+            var height = Math.max(0, myHeight);
+            height = height - (height * 58 / 100)
+            grid.SetHeight(height);
+        }     
+    </script>
     <table style="width: 100%;" width="100%">
         <tr>
             <td align="left">
@@ -269,16 +299,24 @@
 	                                        lblerrmessage.SetText('');
 
                                             var pMsg = s.cpMessage;
-                                            if (pMsg != '') {
-                                                if (pMsg.substring(1,5) == '1001' || pMsg.substring(1,5) == '1002' || pMsg.substring(1,5) == '1003') {
-                                                    lblerrmessage.GetMainElement().style.color = 'Blue';  
-                                                } else {
-                                                    lblerrmessage.GetMainElement().style.color = 'Red';
-                                                }
-                                                    lblerrmessage.SetText(pMsg);
-                                                } else {
+                                            if (typeof(pMsg) != 'undefined') 
+											{
+												if (pMsg != '')
+												{
+													if (pMsg.substring(1,5) == '1001' || pMsg.substring(1,5) == '1002' || pMsg.substring(1,5) == '1003') 
+													{
+														lblerrmessage.GetMainElement().style.color = 'Blue';  
+													} 
+													else 
+													{
+														lblerrmessage.GetMainElement().style.color = 'Red';
+													}
+													lblerrmessage.SetText(pMsg);
+												}
+                                            } else 
+											{
                                                     lblerrmessage.SetText('');
-                                             }
+											}
                                         }" />
                             </dx1:ASPxButton>
                         </td>
@@ -331,30 +369,34 @@
                     ClientInstanceName="grid">
                     <ClientSideEvents EndCallback="function(s, e) {
 						var pMsg = s.cpMessage;
-                        if (pMsg != '') {
-                            if (pMsg.substring(1,5) == '1001' || pMsg.substring(1,5) == '1002' || pMsg.substring(1,5) == '1003' || pMsg.substring(1,5) == '2001') {
-                                lblerrmessage.GetMainElement().style.color = 'Blue';
-                            } else {
-                                lblerrmessage.GetMainElement().style.color = 'Red';
-                            }
-                            lblerrmessage.SetText(pMsg);
+                        if (typeof(pMsg) != 'undefined') 
+						{
+							if (pMsg != '')
+							{
+								if (pMsg.substring(1,5) == '1001' || pMsg.substring(1,5) == '1002' || pMsg.substring(1,5) == '1003' || pMsg.substring(1,5) == '2001') 
+								{
+									lblerrmessage.GetMainElement().style.color = 'Blue';
+								} 
+								else 
+								{
+									lblerrmessage.GetMainElement().style.color = 'Red';
+								}
+								lblerrmessage.SetText(pMsg);
+							}
                         } else {
                             lblerrmessage.SetText('');
                         }
-                        delete s.cpMessage;
-}" RowClick="function(s, e) {
-	lblerrmessage.SetText('');
-}" Init="function(s, e) {
-	dtfrom.SetText(s.cpdtfrom);
-    dtto.SetText(s.cpdtto); 
-	dt1.SetText(s.cpdt1);
-	rbdeliver.SetValue(s.cpdeliver);
-	rbreceiving.SetValue(s.cpreceive);
-	rbkanban.SetValue(s.cpkanban);
-
-}" CallbackError="function(s, e) {
-	e.handled = true;
-}" />
+                        delete s.cpMessage;}" 
+						RowClick="function(s, e) {lblerrmessage.SetText('');}" 
+						Init="function(s, e) {
+							dtfrom.SetText(s.cpdtfrom);
+							dtto.SetText(s.cpdtto); 
+							dt1.SetText(s.cpdt1);
+							rbdeliver.SetValue(s.cpdeliver);
+							rbreceiving.SetValue(s.cpreceive);
+							rbkanban.SetValue(s.cpkanban);
+						}" 
+						CallbackError="function(s, e) {e.handled = true;}" />
                     <Columns>
                         <dx:GridViewDataHyperLinkColumn Caption=" " FieldName="coldetail" Name="coldetail"
                             VisibleIndex="1" Width="65px">

@@ -273,7 +273,9 @@ EndProcedure:
                 For Each drSheet In dtSheets.Rows
                     If InStr("_xlnm#_FilterDatabase", drSheet("TABLE_NAME").ToString(), CompareMethod.Text) = 0 Then
                         If InStr("_xlnm#Print_Titles", drSheet("TABLE_NAME").ToString(), CompareMethod.Text) = 0 Then
-                            listSheet.Add(drSheet("TABLE_NAME").ToString())
+                            If InStr("_xlnm#Print_Area", drSheet("TABLE_NAME").ToString(), CompareMethod.Text) = 0 Then
+                                listSheet.Add(drSheet("TABLE_NAME").ToString())
+                            End If
                         End If
                     End If
                 Next
