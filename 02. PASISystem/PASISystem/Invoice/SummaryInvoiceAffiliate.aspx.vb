@@ -560,129 +560,156 @@ Public Class SummaryInvoiceAffiliate
                 Dim ls_End As String = ""
                 ls_End = Right("0" & Day(DateAdd(DateInterval.Day, -1, DateAdd(DateInterval.Month, 1, CDate(Format(dtPOPeriodTo.Value, "yyyy-MM-01"))))), 2)
 
-                'AFFILIATE CODE
-                If Trim(cboAffiliateCode.Text) <> "==ALL==" And Trim(cboAffiliateCode.Text) <> "" Then
-                    ls_filter = ls_filter + _
-                                  "                      AND POM.AffiliateID = '" & Trim(cboAffiliateCode.Text) & "' " & vbCrLf
-                End If
+                ''AFFILIATE CODE
+                'If Trim(cboAffiliateCode.Text) <> "==ALL==" And Trim(cboAffiliateCode.Text) <> "" Then
+                '    ls_filter = ls_filter + _
+                '                  "                      AND POM.AffiliateID = '" & Trim(cboAffiliateCode.Text) & "' " & vbCrLf
+                'End If
 
-                'SUPPLIER CODE
-                If Trim(cboSupplierCode.Text) <> "==ALL==" And Trim(cboSupplierCode.Text) <> "" Then
-                    ls_filter = ls_filter + _
-                                  "                      AND POM.SupplierID = '" & Trim(cboSupplierCode.Text) & "' " & vbCrLf
-                End If
+                ''SUPPLIER CODE
+                'If Trim(cboSupplierCode.Text) <> "==ALL==" And Trim(cboSupplierCode.Text) <> "" Then
+                '    ls_filter = ls_filter + _
+                '                  "                      AND POM.SupplierID = '" & Trim(cboSupplierCode.Text) & "' " & vbCrLf
+                'End If
+
+                ''AFFILIATE PO PERIOD
+                'If chkPOPeriod.Checked = True Then
+                '    ls_filter = ls_filter + _
+                '                  "                      AND CONVERT(date,POM.Period) BETWEEN '" & Format(dtPOPeriodFrom.Value, "yyyy-MM-01") & "' AND '" & Format(dtPOPeriodTo.Value, "yyyy-MM-" & ls_End) & "' " & vbCrLf
+                'End If
+
+                ''SUPPLIER DELIVERY DATE
+                'If chkSupplierDelDate.Checked = True Then
+                '    ls_filter = ls_filter + _
+                '                  "                      AND CONVERT(date,DOM.DeliveryDate) BETWEEN '" & Format(dtSupplierDelDateFrom.Value, "yyyy-MM-dd") & "' AND '" & Format(dtSupplierDelDateTo.Value, "yyyy-MM-dd") & "' " & vbCrLf
+                'End If
+
+                ''PASI DELIVERY DATE
+                'If txtPONo.Text <> "" Then
+                '    ls_filter = ls_filter + _
+                '                  "                      AND POD.PONo = '" & txtPONo.Text & "' " & vbCrLf
+                'End If
+
+
+
+                'ls_sql = "   SELECT DISTINCT " & vbCrLf & _
+                '     "    	POM.Period    " & vbCrLf & _
+                '     "    	,PONo = RTRIM(POM.PONo) " & vbCrLf & _
+                '     " 	    ,KanbanNo = RTRIM(KM.KanbanNo) " & vbCrLf & _
+                '     "    	,AffiliateID = RTRIM(POM.AffiliateID) " & vbCrLf & _
+                '     "    	,SupplierID = RTRIM(POM.SupplierID) " & vbCrLf & _
+                '     "    	,POKanban = CASE WHEN ISNULL(POD.KanbanCls, '0') = '1' THEN 'YES' ELSE 'NO' END    " & vbCrLf & _
+                '     "    	,POM.PASISendAffiliateDate    " & vbCrLf & _
+                '     "    	,PartNo = RTRIM(POD.PartNo) " & vbCrLf & _
+                '     "    	,PartName = RTRIM(MP.PartName) " & vbCrLf & _
+                '     "    	,QtyPO = ISNULL(POD.POQty,0)    " & vbCrLf & _
+                '     "    	,MPM.NetWeight" & vbCrLf & _
+                '     "    	,MPM.GrossWeight" & vbCrLf
+
+                'ls_sql = ls_sql + "    	,ETDSupp = ES.ETDSupplier    " & vbCrLf & _
+                '                  "    	,ETAAff = KM.KanbanDate    " & vbCrLf & _
+                '                  "    	,PASIDeliveryDate = DOM.DeliveryDate    " & vbCrLf & _
+                '                  "    	,PASISuratJalanNo = RTRIM(DOM.SuratJalanNo) " & vbCrLf & _
+                '                  "  	,PASIDeliveryQty = DOD.DOQty  " & vbCrLf & _
+                '                  "     ,AffiliateReceiveDate = RM.ReceiveDate  " & vbCrLf & _
+                '                  "     ,AffiliateReceiveQty = ISNULL(RD.RecQty,0)  " & vbCrLf & _
+                '                  " 	,InvoiceNo = RTRIM(PLM.InvoiceNo) " & vbCrLf & _
+                '                  " 	,InvoiceDate = PLM.DeliveryDate " & vbCrLf & _
+                '                  " 	,DOD.Price  " & vbCrLf & _
+                '                  "  	,TOTAL = ISNULL(RD.RecQty,0) * ISNULL(DOD.Price,0)    " & vbCrLf
+
+                'ls_sql = ls_sql + "   FROM PO_Master POM    " & vbCrLf & _
+                '                  "   LEFT JOIN PO_Detail POD ON POM.AffiliateID = POD.AffiliateID    " & vbCrLf & _
+                '                  "    						AND POM.PoNo = POD.PONo    " & vbCrLf & _
+                '                  "    						AND POM.SupplierID = POD.SupplierID    " & vbCrLf & _
+                '                  "   LEFT JOIN Kanban_Detail KD ON KD.AffiliateID = POD.AffiliateID    " & vbCrLf & _
+                '                  "    							AND KD.PoNo = POD.PONo    " & vbCrLf & _
+                '                  "    							AND KD.SupplierID = POD.SupplierID    " & vbCrLf & _
+                '                  "    							AND KD.PartNo = POD.PartNo    " & vbCrLf & _
+                '                  "   LEFT JOIN Kanban_Master KM ON KD.AffiliateID = KM.AffiliateID    " & vbCrLf & _
+                '                  "    							AND KD.KanbanNo = KM.KanbanNo    " & vbCrLf & _
+                '                  "    							AND KD.SupplierID = KM.SupplierID    " & vbCrLf
+
+                'ls_sql = ls_sql + "    							AND KD.DeliveryLocationCode = KM.DeliveryLocationCode    " & vbCrLf & _
+                '                  "  	INNER JOIN DOPASI_Detail DOD ON KD.AffiliateID = DOD.AffiliateID  " & vbCrLf & _
+                '                  "  								AND KD.KanbanNo = DOD.KanbanNo    " & vbCrLf & _
+                '                  "    								AND KD.SupplierID = DOD.SupplierID    " & vbCrLf & _
+                '                  "    								AND KD.PartNo = DOD.PartNo    " & vbCrLf & _
+                '                  "    								AND KD.PoNo = DOD.PoNo    " & vbCrLf & _
+                '                  "  	INNER JOIN DOPASI_Master DOM ON DOM.AffiliateID = DOD.AffiliateID    " & vbCrLf & _
+                '                  "    								AND DOM.SuratJalanNo = DOD.SuratJalanNo    " & vbCrLf & _
+                '                  "    								AND DOM.SupplierID = DOD.SupplierID  " & vbCrLf & _
+                '                  " 	LEFT JOIN PLPASI_Detail PLD ON DOD.SuratJalanNo = PLD.SuratJalanNo " & vbCrLf & _
+                '                  " 								AND DOD.SupplierID = PLD.SupplierID " & vbCrLf
+
+                'ls_sql = ls_sql + " 								AND DOD.AffiliateID = PLD.AffiliateID " & vbCrLf & _
+                '                  " 								AND DOD.PONo = PLD.PONo " & vbCrLf & _
+                '                  " 								AND DOD.PartNo = PLD.PartNo " & vbCrLf & _
+                '                  " 	LEFT JOIN PLPASI_Master PLM ON PLD.SuratJalanNo = PLM.SuratJalanNo " & vbCrLf & _
+                '                  " 								AND PLD.SupplierID = PLM.SupplierID " & vbCrLf & _
+                '                  " 								AND PLD.AffiliateID = PLM.AffiliateID " & vbCrLf & _
+                '                  "      LEFT JOIN ReceiveAffiliate_Master RM ON DOM.AffiliateID = RM.AffiliateID  " & vbCrLf & _
+                '                  " 			                             AND DOM.SupplierID = RM.SupplierID  " & vbCrLf & _
+                '                  "                                          AND DOM.SuratJalanNo = RM.SuratJalanNo  " & vbCrLf & _
+                '                  "      LEFT JOIN ReceiveAffiliate_Detail RD ON RM.AffiliateID = RD.AffiliateID  " & vbCrLf & _
+                '                  "                                          AND RM.SupplierID = RD.SupplierID  " & vbCrLf
+
+                'ls_sql = ls_sql + "                                          AND RM.SuratJalanNo = RD.SuratJalanNo  " & vbCrLf & _
+                '                  "                                          AND RD.PartNo = PLD.PartNo " & vbCrLf & _
+                '                  "                                          AND RD.PONo = PLD.PONo " & vbCrLf & _
+                '                  "      LEFT JOIN MS_PartMapping MPM ON MPM.PartNo = POD.PartNo AND MPM.AffiliateID = POD.AffiliateID AND MPM.SupplierID = POD.SupplierID   " & vbCrLf & _
+                '                  " 	 Left Join MS_Price MPR ON DOD.PartNo = MPR.PartNo   " & vbCrLf & _
+                '                  "  									AND DOM.DeliveryDate between MPR.Startdate and MPR.Enddate  " & vbCrLf & _
+                '                  "  									AND MPR.AffiliateID = DOD.AffiliateID  " & vbCrLf & _
+                '                  "  									AND POD.PartNo = MPR.PartNo " & vbCrLf & _
+                '                  "                                     AND MPM.PackingCls = MPR.PackingCls " & vbCrLf & _
+                '                  "   	LEFT JOIN MS_ETD_PASI EP ON POM.AffiliateID = EP.AffiliateID   " & vbCrLf & _
+                '                  "   								AND KM.KanbanDate = EP.ETAAffiliate   " & vbCrLf & _
+                '                  "   	LEFT JOIN MS_ETD_Supplier_PASI ES ON POM.SupplierID = ES.SupplierID   " & vbCrLf & _
+                '                  "   										AND EP.ETDPASI =  ES.ETAPASI    " & vbCrLf & _
+                '                  "   LEFT JOIN MS_Parts MP ON MP.PartNo = POD.PartNo    " & vbCrLf
+
+
+                'ls_sql = ls_sql + "   WHERE KD.KanbanQty > 0 " & vbCrLf
+
+                'ls_sql = ls_sql + ls_filter & vbCrLf
+
+                'ls_sql = ls_sql + " " & vbCrLf & _
+                '                  " Order By PASISuratJalanNo " & vbCrLf
+
+
+                'Dim Cmd As New SqlCommand(ls_sql, cn)
+                'Dim da As New SqlDataAdapter(Cmd)
+                'Dim dt As New DataTable
+                'da.SelectCommand.CommandTimeout = 300
+                'da.Fill(dt)
+
+                ls_sql = "sp_PASI_SummaryInvoiceAffiliate_GridLoad"
+                Dim cmd As New SqlCommand(ls_sql, cn)
+                cmd.CommandType = CommandType.StoredProcedure
+                cmd.Parameters.AddWithValue("@AffiliateID", Trim(cboAffiliateCode.Text))
+                cmd.Parameters.AddWithValue("@SupplierCode", Trim(cboSupplierCode.Text))
 
                 'AFFILIATE PO PERIOD
                 If chkPOPeriod.Checked = True Then
-                    ls_filter = ls_filter + _
-                                  "                      AND CONVERT(date,POM.Period) BETWEEN '" & Format(dtPOPeriodFrom.Value, "yyyy-MM-01") & "' AND '" & Format(dtPOPeriodTo.Value, "yyyy-MM-" & ls_End) & "' " & vbCrLf
+                    cmd.Parameters.AddWithValue("@AffiliatePOPeriodFrom", Format(dtPOPeriodFrom.Value, "yyyy-MM-dd"))
+                    cmd.Parameters.AddWithValue("@AffiliatePOPeriodTo", Format(dtPOPeriodTo.Value, "yyyy-MM-" & ls_End))
                 End If
 
                 'SUPPLIER DELIVERY DATE
                 If chkSupplierDelDate.Checked = True Then
-                    ls_filter = ls_filter + _
-                                  "                      AND CONVERT(date,DOM.DeliveryDate) BETWEEN '" & Format(dtSupplierDelDateFrom.Value, "yyyy-MM-dd") & "' AND '" & Format(dtSupplierDelDateTo.Value, "yyyy-MM-dd") & "' " & vbCrLf
+                    cmd.Parameters.AddWithValue("@PASIDeliveryDateFrom", Format(dtSupplierDelDateFrom.Value, "yyyy-MM-dd"))
+                    cmd.Parameters.AddWithValue("@PASIDeliveryDateTo", Format(dtSupplierDelDateTo.Value, "yyyy-MM-dd"))
                 End If
 
-                'PASI DELIVERY DATE
-                If txtPONo.Text <> "" Then
-                    ls_filter = ls_filter + _
-                                  "                      AND POD.PONo = '" & txtPONo.Text & "' " & vbCrLf
-                End If
-
-
-
-                ls_sql = "   SELECT DISTINCT " & vbCrLf & _
-                     "    	POM.Period    " & vbCrLf & _
-                     "    	,PONo = RTRIM(POM.PONo) " & vbCrLf & _
-                     " 	    ,KanbanNo = RTRIM(KM.KanbanNo) " & vbCrLf & _
-                     "    	,AffiliateID = RTRIM(POM.AffiliateID) " & vbCrLf & _
-                     "    	,SupplierID = RTRIM(POM.SupplierID) " & vbCrLf & _
-                     "    	,POKanban = CASE WHEN ISNULL(POD.KanbanCls, '0') = '1' THEN 'YES' ELSE 'NO' END    " & vbCrLf & _
-                     "    	,POM.PASISendAffiliateDate    " & vbCrLf & _
-                     "    	,PartNo = RTRIM(POD.PartNo) " & vbCrLf & _
-                     "    	,PartName = RTRIM(MP.PartName) " & vbCrLf & _
-                     "    	,QtyPO = ISNULL(POD.POQty,0)    " & vbCrLf & _
-                     "    	,MPM.NetWeight" & vbCrLf & _
-                     "    	,MPM.GrossWeight" & vbCrLf
-
-                ls_sql = ls_sql + "    	,ETDSupp = ES.ETDSupplier    " & vbCrLf & _
-                                  "    	,ETAAff = KM.KanbanDate    " & vbCrLf & _
-                                  "    	,PASIDeliveryDate = DOM.DeliveryDate    " & vbCrLf & _
-                                  "    	,PASISuratJalanNo = RTRIM(DOM.SuratJalanNo) " & vbCrLf & _
-                                  "  	,PASIDeliveryQty = DOD.DOQty  " & vbCrLf & _
-                                  "     ,AffiliateReceiveDate = RM.ReceiveDate  " & vbCrLf & _
-                                  "     ,AffiliateReceiveQty = ISNULL(RD.RecQty,0)  " & vbCrLf & _
-                                  " 	,InvoiceNo = RTRIM(PLM.InvoiceNo) " & vbCrLf & _
-                                  " 	,InvoiceDate = PLM.DeliveryDate " & vbCrLf & _
-                                  " 	,DOD.Price  " & vbCrLf & _
-                                  "  	,TOTAL = ISNULL(RD.RecQty,0) * ISNULL(DOD.Price,0)    " & vbCrLf
-
-                ls_sql = ls_sql + "   FROM PO_Master POM    " & vbCrLf & _
-                                  "   LEFT JOIN PO_Detail POD ON POM.AffiliateID = POD.AffiliateID    " & vbCrLf & _
-                                  "    						AND POM.PoNo = POD.PONo    " & vbCrLf & _
-                                  "    						AND POM.SupplierID = POD.SupplierID    " & vbCrLf & _
-                                  "   LEFT JOIN Kanban_Detail KD ON KD.AffiliateID = POD.AffiliateID    " & vbCrLf & _
-                                  "    							AND KD.PoNo = POD.PONo    " & vbCrLf & _
-                                  "    							AND KD.SupplierID = POD.SupplierID    " & vbCrLf & _
-                                  "    							AND KD.PartNo = POD.PartNo    " & vbCrLf & _
-                                  "   LEFT JOIN Kanban_Master KM ON KD.AffiliateID = KM.AffiliateID    " & vbCrLf & _
-                                  "    							AND KD.KanbanNo = KM.KanbanNo    " & vbCrLf & _
-                                  "    							AND KD.SupplierID = KM.SupplierID    " & vbCrLf
-
-                ls_sql = ls_sql + "    							AND KD.DeliveryLocationCode = KM.DeliveryLocationCode    " & vbCrLf & _
-                                  "  	INNER JOIN DOPASI_Detail DOD ON KD.AffiliateID = DOD.AffiliateID  " & vbCrLf & _
-                                  "  								AND KD.KanbanNo = DOD.KanbanNo    " & vbCrLf & _
-                                  "    								AND KD.SupplierID = DOD.SupplierID    " & vbCrLf & _
-                                  "    								AND KD.PartNo = DOD.PartNo    " & vbCrLf & _
-                                  "    								AND KD.PoNo = DOD.PoNo    " & vbCrLf & _
-                                  "  	INNER JOIN DOPASI_Master DOM ON DOM.AffiliateID = DOD.AffiliateID    " & vbCrLf & _
-                                  "    								AND DOM.SuratJalanNo = DOD.SuratJalanNo    " & vbCrLf & _
-                                  "    								AND DOM.SupplierID = DOD.SupplierID  " & vbCrLf & _
-                                  " 	LEFT JOIN PLPASI_Detail PLD ON DOD.SuratJalanNo = PLD.SuratJalanNo " & vbCrLf & _
-                                  " 								AND DOD.SupplierID = PLD.SupplierID " & vbCrLf
-
-                ls_sql = ls_sql + " 								AND DOD.AffiliateID = PLD.AffiliateID " & vbCrLf & _
-                                  " 								AND DOD.PONo = PLD.PONo " & vbCrLf & _
-                                  " 								AND DOD.PartNo = PLD.PartNo " & vbCrLf & _
-                                  " 	LEFT JOIN PLPASI_Master PLM ON PLD.SuratJalanNo = PLM.SuratJalanNo " & vbCrLf & _
-                                  " 								AND PLD.SupplierID = PLM.SupplierID " & vbCrLf & _
-                                  " 								AND PLD.AffiliateID = PLM.AffiliateID " & vbCrLf & _
-                                  "      LEFT JOIN ReceiveAffiliate_Master RM ON DOM.AffiliateID = RM.AffiliateID  " & vbCrLf & _
-                                  " 			                             AND DOM.SupplierID = RM.SupplierID  " & vbCrLf & _
-                                  "                                          AND DOM.SuratJalanNo = RM.SuratJalanNo  " & vbCrLf & _
-                                  "      LEFT JOIN ReceiveAffiliate_Detail RD ON RM.AffiliateID = RD.AffiliateID  " & vbCrLf & _
-                                  "                                          AND RM.SupplierID = RD.SupplierID  " & vbCrLf
-
-                ls_sql = ls_sql + "                                          AND RM.SuratJalanNo = RD.SuratJalanNo  " & vbCrLf & _
-                                  "                                          AND RD.PartNo = PLD.PartNo " & vbCrLf & _
-                                  "                                          AND RD.PONo = PLD.PONo " & vbCrLf & _
-                                  "      LEFT JOIN MS_PartMapping MPM ON MPM.PartNo = POD.PartNo AND MPM.AffiliateID = POD.AffiliateID AND MPM.SupplierID = POD.SupplierID   " & vbCrLf & _
-                                  " 	 Left Join MS_Price MPR ON DOD.PartNo = MPR.PartNo   " & vbCrLf & _
-                                  "  									AND DOM.DeliveryDate between MPR.Startdate and MPR.Enddate  " & vbCrLf & _
-                                  "  									AND MPR.AffiliateID = DOD.AffiliateID  " & vbCrLf & _
-                                  "  									AND POD.PartNo = MPR.PartNo " & vbCrLf & _
-                                  "                                     AND MPM.PackingCls = MPR.PackingCls " & vbCrLf & _
-                                  "   	LEFT JOIN MS_ETD_PASI EP ON POM.AffiliateID = EP.AffiliateID   " & vbCrLf & _
-                                  "   								AND KM.KanbanDate = EP.ETAAffiliate   " & vbCrLf & _
-                                  "   	LEFT JOIN MS_ETD_Supplier_PASI ES ON POM.SupplierID = ES.SupplierID   " & vbCrLf & _
-                                  "   										AND EP.ETDPASI =  ES.ETAPASI    " & vbCrLf & _
-                                  "   LEFT JOIN MS_Parts MP ON MP.PartNo = POD.PartNo    " & vbCrLf
-
-
-                ls_sql = ls_sql + "   WHERE KD.KanbanQty > 0 " & vbCrLf
-
-                ls_sql = ls_sql + ls_filter & vbCrLf
-
-                ls_sql = ls_sql + " " & vbCrLf & _
-                                  " Order By PASISuratJalanNo " & vbCrLf
-
-
-                Dim Cmd As New SqlCommand(ls_sql, cn)
-                Dim da As New SqlDataAdapter(Cmd)
+                'PONo
+                cmd.Parameters.AddWithValue("@PONumber", Trim(txtPONo.Text))
+                cmd.CommandTimeout = 300
+                Dim sqlDA As New SqlDataAdapter
+                sqlDA.SelectCommand = cmd
                 Dim dt As New DataTable
-                da.SelectCommand.CommandTimeout = 300
-                da.Fill(dt)
+                sqlDA.SelectCommand.CommandTimeout = 300
+                sqlDA.Fill(dt)
 
                 Return dt
             End Using
