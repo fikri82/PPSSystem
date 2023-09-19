@@ -122,12 +122,12 @@ Public Class DeliverySplitEntry
 
         Using trans As New TransactionScope()
             Try
-                clsData.OrderNoNew = clsDB.GetInfo(clsGlobal.ConnectionString, "5", clsData.PoNo, clsData.AffiliateID)
-                If clsData.OrderNoNew = "" Then
-                    lblerrmessage.Text = "New Order No is Blank, Please Contact Your Administrator!"
-                    Session("SessionSPLITMsg") = lblerrmessage.Text
-                    Exit Sub
-                End If
+                'clsData.OrderNoNew = clsDB.GetInfo(clsGlobal.ConnectionString, "5", clsData.PoNo, clsData.AffiliateID)
+                'If clsData.OrderNoNew = "" Then
+                '    lblerrmessage.Text = "New Order No is Blank, Please Contact Your Administrator!"
+                '    Session("SessionSPLITMsg") = lblerrmessage.Text
+                '    Exit Sub
+                'End If
 
                 clsData.SuratJalanNoNew = clsDB.GetInfo(clsGlobal.ConnectionString, "6", clsData.PoNo, clsData.AffiliateID, clsData.SuratJalanNo)
                 If clsData.SuratJalanNoNew = "" Then

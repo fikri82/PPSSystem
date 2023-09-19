@@ -1833,6 +1833,8 @@ keluar:
         Dim OrderNo = "" 'Trim(dt.Rows(0)("orderNo"))
         Dim SJDeliverySplit = Trim(dt.Rows(0)("SplitDelivery")) 'Replace(dt.Rows(0)("SplitDelivery")), "'", "''")
 
+        Dim looping As Integer = 0
+
         Dim dsEmail As New DataSet
         dsEmail = EmailToEmailCCKanban_Export(AffiliateID, SupplierID)
         '1 CC Affiliate
@@ -1858,8 +1860,12 @@ keluar:
             Throw New Exception("Data Excel Split More than 2, Please Check : " & ls_sql)
         End If
 
-        For i = 0 To dtSplitDelivery.Rows.Count - 1
-            OrderNo = dtSplitDelivery.Rows(i)("OrderNo").ToString()
+        looping = IIf(dtSplitDelivery.Rows.Count = 1, 2, 2) 'di Setting jadi 2 PASTI 2 excel dikirim soalnya
+
+        For i = 0 To looping - 1
+            Dim rowDatatable As Integer = IIf(dtSplitDelivery.Rows.Count <> looping, 0, i)
+
+            OrderNo = dtSplitDelivery.Rows(0)("OrderNo").ToString()
             ForwarderID = dtSplitDelivery.Rows(0)("OldForwarderID").ToString() 'pasti yg pertama aja
             tmpOrderNo = tmpOrderNo & IIf(tmpOrderNo = "", "", " & ") & OrderNo
 
@@ -1878,32 +1884,33 @@ keluar:
             'Start Create Excel for Header
             ExcelSheet.Range("H2").Value = receiptEmail.Trim
             ExcelSheet.Range("H3").Value = AffiliateID
-            ExcelSheet.Range("H4").Value = dtSplitDelivery.Rows(i)("ForwarderID").ToString()
+            ExcelSheet.Range("H4").Value = dtSplitDelivery.Rows(rowDatatable)("ForwarderID").ToString()
             ExcelSheet.Range("H5").Value = SupplierID
 
-            ExcelSheet.Range("AP11").Value = IIf(dtSplitDelivery.Rows(i)("CommercialCls").ToString() = "0", "NO", "YES")
+            'Jika data tidak sama dengan dtSplitDelivery.
+            ExcelSheet.Range("AP11").Value = IIf(dtSplitDelivery.Rows(rowDatatable)("CommercialCls").ToString() = "0", "NO", "YES")
 
-            ExcelSheet.Range("I11:X11").Value = dtSplitDelivery.Rows(i)("SupplierName").ToString()
-            ExcelSheet.Range("I12:X15").Value = dtSplitDelivery.Rows(i)("SupplierAddress").ToString()
+            ExcelSheet.Range("I11:X11").Value = dtSplitDelivery.Rows(rowDatatable)("SupplierName").ToString()
+            ExcelSheet.Range("I12:X15").Value = dtSplitDelivery.Rows(rowDatatable)("SupplierAddress").ToString()
 
-            ExcelSheet.Range("I19:X19").Value = dtSplitDelivery.Rows(i)("ForwarderName").ToString()
-            ExcelSheet.Range("I20:X22").Value = dtSplitDelivery.Rows(i)("ForwarderAddress").ToString()
+            ExcelSheet.Range("I19:X19").Value = dtSplitDelivery.Rows(rowDatatable)("ForwarderName").ToString()
+            ExcelSheet.Range("I20:X22").Value = dtSplitDelivery.Rows(rowDatatable)("ForwarderAddress").ToString()
 
-            ExcelSheet.Range("I23:X23").Value = "ATTN : " & dtSplitDelivery.Rows(i)("attn").ToString() & "     TELP : " & dtSplitDelivery.Rows(i)("telp").ToString()
+            ExcelSheet.Range("I23:X23").Value = "ATTN : " & dtSplitDelivery.Rows(rowDatatable)("attn").ToString() & "     TELP : " & dtSplitDelivery.Rows(rowDatatable)("telp").ToString()
 
-            ExcelSheet.Range("AE19:AT19").Value = dtSplitDelivery.Rows(i)("ConsigneeName").ToString()
-            ExcelSheet.Range("AE20:AT22").Value = dtSplitDelivery.Rows(i)("ConsigneeAddress").ToString()
+            ExcelSheet.Range("AE19:AT19").Value = dtSplitDelivery.Rows(rowDatatable)("ConsigneeName").ToString()
+            ExcelSheet.Range("AE20:AT22").Value = dtSplitDelivery.Rows(rowDatatable)("ConsigneeAddress").ToString()
 
-            ExcelSheet.Range("AE11:AI11").Value = Format((dtSplitDelivery.Rows(i)("Period")), "yyyy-MM")
+            ExcelSheet.Range("AE11:AI11").Value = Format((dtSplitDelivery.Rows(rowDatatable)("Period")), "yyyy-MM")
 
             ExcelSheet.Range("AE13:AI13").Value = OrderNo
             ExcelSheet.Range("AE15:AI15").Value = PONo
 
-            ExcelSheet.Range("AE17:AI17").Value = Format((dtSplitDelivery.Rows(i)("ETDVendor")), "yyyy-MM-dd")
+            ExcelSheet.Range("AE17:AI17").Value = Format((dtSplitDelivery.Rows(rowDatatable)("ETDVendor")), "yyyy-MM-dd")
 
             'Ending Create Excel for Header
 
-            ls_sql = "Exec sp_DeliverySplitBatch_Select_Detail '" + AffiliateID + "', '" + SupplierID + "', '" + PONo + "', '" + OrderNo + "' "
+            ls_sql = "Exec sp_DeliverySplitBatch_Select_Detail '" + AffiliateID + "', '" + SupplierID + "', '" + PONo + "', '" + OrderNo + "', " + i.ToString() + " "
             Dim dtSplitDelivery_Detail As New DataTable
             dtSplitDelivery_Detail = cls.uf_GetDataSet(ls_sql).Tables(0)
 
@@ -1973,11 +1980,11 @@ keluar:
 
             If i = 0 Then
                 OrderNo1 = OrderNo
-                ls_Filename1 = "\DELIVERY CONFIRMATION-" & PONo & " Split (" & OrderNo & ")-" & SupplierID & ".xlsm"
+                ls_Filename1 = "\DELIVERY CONFIRMATION-" & PONo & " Split (" & OrderNo & ")-" & SupplierID & "-ORIGINAL.xlsm"
                 ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & ls_Filename1)
             ElseIf i = 1 Then
                 OrderNo2 = OrderNo
-                ls_Filename2 = "\DELIVERY CONFIRMATION-" & PONo & " Split (" & OrderNo & ")-" & SupplierID & ".xlsm"
+                ls_Filename2 = "\DELIVERY CONFIRMATION-" & PONo & " Split (" & OrderNo & ")-" & SupplierID & "-SPLIT.xlsm"
                 ExcelBook.SaveAs(Trim(txtSaveAsDOM.Text) & ls_Filename2)
             End If
 
@@ -4039,11 +4046,17 @@ keluar:
             'MdlConn.ReadConnection()
             Using sqlConn As New SqlConnection(cfg.ConnectionString)
                 sqlConn.Open()
-                ls_SQL = " update dbo.PO_Master_Export set FinalApprovalCls = '2' " & vbCrLf & _
+                ls_SQL = " update dbo.PO_Master_Export set FinalApprovalCls = '2', SplitDelivery = NULL, SplitForwarder = NULL " & vbCrLf & _
                          " WHERE AffiliateID = '" & pAffiliateID & "' " & vbCrLf & _
                          " AND SupplierID = '" & pSupp & "' " & vbCrLf & _
                          " AND PoNo = '" & pPoNo & "'" & vbCrLf & _
-                         " AND OrderNo1 = '" & pOrderNo1 & "'"
+                         " AND OrderNo1 = '" & pOrderNo1 & "'" & vbCrLf & _
+                            vbCrLf & _
+                         " update dbo.PrintLabelExport set cls_SplitDelivery = NULL " & vbCrLf & _
+                         " WHERE AffiliateID = '" & pAffiliateID & "' " & vbCrLf & _
+                         " AND SupplierID = '" & pSupp & "' " & vbCrLf & _
+                         " AND PoNo = '" & pPoNo & "'" & vbCrLf & _
+                         " AND OrderNo = '" & pOrderNo1 & "'"
                 Dim sqlComm As New SqlCommand(ls_SQL, sqlConn)
                 sqlComm.ExecuteNonQuery()
                 sqlComm.Dispose()
@@ -8551,7 +8564,7 @@ keluar:
         PoNo = ds.Tables(0).Rows(0)("PoNo") : OrderNo = ds.Tables(0).Rows(0)("OrderNo")
 
         'Get Email Forwarder yang Baru
-        ls_sql = "select Top 1 ForwarderID from ReceiveForwarder_Master where AffiliateID = '" & AffID & "' and SupplierID = '" & SuppID & "' and PONo = '" & PoNo & "' and OrderNo = '" & OrderNo & "'"
+        ls_sql = "select Top 1 ForwarderID from ReceiveForwarder_Master_History where AffiliateID = '" & AffID & "' and SupplierID = '" & SuppID & "' and PONo = '" & PoNo & "' and OrderNo = '" & OrderNo & "' and SuratJalanNo = '" & SJNoOld & "' "
         ds = cls.uf_GetDataSet(ls_sql)
 
         If ds.Tables(0).Rows.Count = 0 Then
@@ -8961,7 +8974,13 @@ keluar:
                          " AND SupplierID = '" & pSupp & "' " & vbCrLf & _
                          " AND SuratJalanNo = '" & pSJNo & "'" & vbCrLf & _
                          " AND OrderNo = '" & pOrderNo & "'" & vbCrLf & _
-                         " AND PoNo = '" & pPoNo & "'"
+                         " AND PoNo = '" & pPoNo & "'" & vbCrLf & _
+                            vbCrLf & _
+                         " update dbo.PrintLabelExport set cls_SplitDelivery = NULL " & vbCrLf & _
+                         " WHERE AffiliateID = '" & pAffiliateID & "' " & vbCrLf & _
+                         " AND SupplierID = '" & pSupp & "' " & vbCrLf & _
+                         " AND PoNo = '" & pPoNo & "'" & vbCrLf & _
+                         " AND OrderNo = '" & pOrderNo & "'"
                 Dim sqlComm As New SqlCommand(ls_SQL, sqlConn)
                 sqlComm.ExecuteNonQuery()
                 sqlComm.Dispose()

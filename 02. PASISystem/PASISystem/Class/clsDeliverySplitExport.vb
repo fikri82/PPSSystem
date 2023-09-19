@@ -13,7 +13,6 @@ Public Class clsDeliverySplitExport
     Public Property ForwarderID_Split As String
     Public Property PoNo As String
     Public Property OrderNo As String
-    Public Property OrderNoNew As String
     Public Property PartNo As String
     Public Property LabelBox As String
     Public Property Remarks As String
@@ -150,7 +149,6 @@ Public Class clsDeliverySplitExportDB
                 .Parameters.AddWithValue("SuratJalan", cls.SuratJalanNo)
                 .Parameters.AddWithValue("PoNo", cls.PoNo)
                 .Parameters.AddWithValue("OrderNo", cls.OrderNo)
-                .Parameters.AddWithValue("OrderNoNew", cls.OrderNoNew)
                 .Parameters.AddWithValue("PartNo", cls.PartNo)
                 .Parameters.AddWithValue("LabelNo", cls.LabelBox)
                 .Parameters.AddWithValue("QtyMOQ", cls.MOQ)
@@ -181,7 +179,6 @@ Public Class clsDeliverySplitExportDB
                 .Parameters.AddWithValue("SuratJalanSplit", cls.SuratJalanNoNew)
                 .Parameters.AddWithValue("PoNo", cls.PoNo)
                 .Parameters.AddWithValue("OrderNo", cls.OrderNo)
-                .Parameters.AddWithValue("OrderNoNew", cls.OrderNoNew)
                 .Parameters.AddWithValue("PartNo", cls.PartNo)
                 .Parameters.AddWithValue("LabelNo", cls.LabelBox)
                 .Parameters.AddWithValue("Remarks", cls.Remarks)

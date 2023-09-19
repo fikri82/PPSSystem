@@ -1203,6 +1203,7 @@ Public Class ShippingInstructionToForwarder
             ls_SQL = ls_SQL + " 		AND RM.SupplierID = RD.SupplierID    " & vbCrLf & _
                               " 		AND RM.AffiliateID = RD.AffiliateID   " & vbCrLf & _
                               " 		AND RM.PONo = RD.PONo   " & vbCrLf & _
+                              " 		AND RM.OrderNo = RD.OrderNo   " & vbCrLf & _
                               " 	LEFT JOIN dbo.MS_Parts MP ON RD.PartNo = MP.PartNo   " & vbCrLf & _
                               " 	LEFT JOIN ReceiveForwarder_DetailBox RB ON RB.SuratJalanNo = RD.SuratJalanNo  " & vbCrLf & _
                               " 		AND RB.SupplierID = RD.SupplierID   " & vbCrLf & _
@@ -2345,20 +2346,27 @@ NextLoop:
                         Exit Sub
                     Else
                         If Session("PriceAda") Is Nothing Then
-                            For i = 0 To grid.VisibleRowCount - 1
-                                ls_Active = grid.GetRowValues(i, "Act") '(e.UpdateValues(iLoop).NewValues("Act").ToString())
-                                If ls_Active = True Then ls_Active = "1" Else ls_Active = "0"
-                                If ls_Active = "1" Then
-                                    pilih = True
-                                End If
-                            Next
-                            If pilih = False Then
-                                ls_MsgID = "6010"
-                                Call clsMsg.DisplayMessage(lblErrMsg, ls_MsgID, clsMessage.MsgType.ErrorMessage)
-                                'Session("YA010Msg") = lblErrMsg.Text
-                                grid.JSProperties("cpMessage") = lblErrMsg.Text
-                                Exit Sub
-                            End If
+                            'No Data Edited (Ada Error)
+                            ls_MsgID = "6011"
+                            Call clsMsg.DisplayMessage(lblErrMsg, ls_MsgID, clsMessage.MsgType.ErrorMessage)
+                            'Session("YA010Msg") = lblErrMsg.Text
+                            grid.JSProperties("cpMessage") = lblErrMsg.Text
+                            Exit Sub
+
+                            'For i = 0 To grid.VisibleRowCount - 1
+                            '    ls_Active = grid.GetRowValues(i, "Act") '(e.UpdateValues(iLoop).NewValues("Act").ToString())
+                            '    If ls_Active = True Then ls_Active = "1" Else ls_Active = "0"
+                            '    If ls_Active = "1" Then
+                            '        pilih = True
+                            '    End If
+                            'Next
+                            'If pilih = False Then
+                            '    ls_MsgID = "6010"
+                            '    Call clsMsg.DisplayMessage(lblErrMsg, ls_MsgID, clsMessage.MsgType.ErrorMessage)
+                            '    'Session("YA010Msg") = lblErrMsg.Text
+                            '    grid.JSProperties("cpMessage") = lblErrMsg.Text
+                            '    Exit Sub
+                            'End If
                             'ElseIf Session("PriceAda") <> "" Then                            
                             '    For i = 0 To grid.VisibleRowCount - 1
                             '        ls_Active = grid.GetRowValues(i, "Act") '(e.UpdateValues(iLoop).NewValues("Act").ToString())

@@ -2451,12 +2451,11 @@ Public Class KanbanCreate
                                           "   Barcode = 'http://zxing.org/w/chart?cht=qr&chs=120x120&chld=L&choe=ISO-8859-1&chl=' + @AffCode + ',' + RTRIM(KD.PONO) + ',' + RTRIM(KM.KanbanNo) + ',' + Rtrim(CONVERT(CHAR(10), CONVERT(DATETIME, ISNULL(KM.Kanbandate, '')), 103)) + ',' + RTRIM(KD.PartNo) + ',' + RTRIM(MSP.PartCarMaker) + ',' + Replace(Rtrim(KD.POQtyBox),'.00','')   " & vbCrLf & _
                                           "   --Barcode = 'http://zxing.org/w/chart?cht=qr&chs=120x120&chld=L&choe=ISO-8859-1&chl=' + @AffCode + ',' + RTRIM(KD.PONO) + ',' + RTRIM(KM.KanbanNo) + ',' + Rtrim(CONVERT(CHAR(10), CONVERT(DATETIME, ISNULL(KM.Kanbandate, '')), 103)) + ',' + RTRIM(KD.PartNo) + ',' + Replace(Rtrim(KD.POQtyBox),'.00','')   " & vbCrLf & _
                                           "   ,Cycle = KM.KanbanCycle " & vbCrLf & _
-                                          "   ,MSS.LabelCode " & vbCrLf & _
+                                          "   ,MSS.SupplierCode " & vbCrLf & _
                                           "   FROM    dbo.Kanban_Master KM   " & vbCrLf & _
                                           "   LEFT JOIN dbo.Kanban_Detail KD ON KM.AffiliateID = KD.AffiliateID   " & vbCrLf & _
                                           "   AND KM.KanbanNo = KD.KanbanNo   " & vbCrLf & _
                                           "   AND KM.SupplierID = KD.SupplierID   " & vbCrLf & _
-                                          "   --LEFT JOIN dbo.MS_DeliveryPlace MDP ON MDP.DeliveryLocationCode = KM.DeliveryLocationCode   " & vbCrLf & _
                                           "   LEFT JOIN dbo.MS_Supplier MSS ON MSS.SupplierID = KM.SupplierID   " & vbCrLf & _
                                           "   LEFT JOIN dbo.MS_Parts MSP ON MSP.PartNo = KD.PartNo   " & vbCrLf & _
                                           "   LEFT JOIN dbo.MS_PartMapping MPM ON MPM.PartNo = KD.PartNo AND MPM.AffiliateID = KD.AffiliateID AND MPM.SupplierID = KD.SupplierID " & vbCrLf
@@ -2488,15 +2487,18 @@ Public Class KanbanCreate
                                           "                      VALUES  ( @KanbanNo, @AffiliateID, @SupplierID,  " & vbCrLf & _
                                           "                                @SupplierName, @PartNo, @PartName, @Qty, @Cust,  " & vbCrLf & _
                                           "                                @DeliveryDate, @Time, @Location, @PONo,  " & vbCrLf & _
-                                          "                                ( Rtrim(@Barcode2) + ',' + @LabelCode + RIGHT(RTRIM('00000' + REPLACE(CONVERT(NUMERIC, @sequence), '.00', '')), 5))   " & vbCrLf & _
+                                          "                                --( Rtrim(@Barcode2) + ',' + @LabelCode + RIGHT(RTRIM('00000' + REPLACE(CONVERT(NUMERIC, @sequence), '.00', '')), 5))   " & vbCrLf & _
+                                          "                                (RTRIM(@Barcode2) + ',' + @LabelCode) --+ RIGHT(RTRIM('00000' + REPLACE(CONVERT(NUMERIC, @sequence), '.00', '')), 5)) " & vbCrLf & _
                                           "                               , @QtyBox,  " & vbCrLf & _
                                           "                                RTRIM(CONVERT(NUMERIC, @StartNo)),  " & vbCrLf & _
                                           "                                RTRIM(CONVERT(NUMERIC, ( @Qty / @QtyBox ))),  "
 
                         ls_sql = ls_sql + "                                ( @Qty / @QtyBox ), @dockID,  " & vbCrLf & _
                                           "                                @DeliveryLocationCode, @ETAPASI, @EtaAffiliate,  " & vbCrLf & _
-                                          "                                @LabelCode + RIGHT(RTRIM('00000' + REPLACE(CONVERT(NUMERIC, @sequence), '.00', '')), 5),  " & vbCrLf & _
-                                          "                                Rtrim(@Barcode) + ',' + @LabelCode + RIGHT(RTRIM('00000' + REPLACE(CONVERT(NUMERIC, @sequence), '.00', '')), 5) , @Cycle, @LabelCode )  " & vbCrLf & _
+                                          "                                --@LabelCode + RIGHT(RTRIM('00000' + REPLACE(CONVERT(NUMERIC, @sequence), '.00', '')), 5),  " & vbCrLf & _
+                                          "                                @LabelCode, --+ RIGHT(RTRIM('00000' + REPLACE(CONVERT(NUMERIC, @sequence), '.00', '')), 5),  " & vbCrLf & _
+                                          "                                --Rtrim(@Barcode) + ',' + @LabelCode + RIGHT(RTRIM('00000' + REPLACE(CONVERT(NUMERIC, @sequence), '.00', '')), 5) , @Cycle, @LabelCode )  " & vbCrLf & _
+                                          "                                RTRIM(@Barcode) + ',' + @LabelCode, @Cycle, @LabelCode ) --+ RIGHT(RTRIM('00000' + REPLACE(CONVERT(NUMERIC, @sequence), '.00', '')), 5), @Cycle, @LabelCode )  " & vbCrLf & _
                                           "                      SET @Total = @Total + @QtyBox   " & vbCrLf & _
                                           "                 END   " & vbCrLf & _
                                           "             END " & vbCrLf & _
@@ -2521,13 +2523,16 @@ Public Class KanbanCreate
                                           "                     KanbanNo , " & vbCrLf & _
                                           "                     Cycle , " & vbCrLf & _
                                           "                     partNo , " & vbCrLf & _
-                                          "                     LabelCode + RIGHT(RTRIM('00000' + Rtrim(ROW_NUMBER() over (order by partno))),5),  " & vbCrLf & _
+                                          "                     --LabelCode + RIGHT(RTRIM('00000' + Rtrim(ROW_NUMBER() over (order by partno))),5),  " & vbCrLf & _
+                                          "                     Trim(LabelCode) + Format(ROW_NUMBER() over (order by partno, Startno),'#00000000'),  " & vbCrLf & _
                                           "                     Startno , " & vbCrLf & _
                                           "                     EndNo , " & vbCrLf & _
                                           "                     QtyBox , " & vbCrLf & _
-                                          "                     Barcode , " & vbCrLf & _
+                                          "                     --Barcode , " & vbCrLf & _
+                                          "                     Trim(Barcode) + Format(ROW_NUMBER() over (order by partno, Startno),'#00000000'), " & vbCrLf & _
                                           "                     DeliveryLocationCode , " & vbCrLf & _
-                                          "                     Barcode2 "
+                                          "                     --Barcode2 , " & vbCrLf & _
+                                          "                     Trim(Barcode2) + Format(ROW_NUMBER() over (order by partno, Startno),'#00000000') "
 
                         ls_sql = ls_sql + "             FROM    #data    " & vbCrLf
 
